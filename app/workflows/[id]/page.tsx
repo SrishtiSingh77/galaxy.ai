@@ -42,6 +42,8 @@ import {
   Grid,
   Hand,
   Map,
+  X,
+  Square,
 } from "lucide-react";
 
 // Import custom components
@@ -96,6 +98,7 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
   const [balance, setBalance] = useState("5085.54");
   const [controlsExpanded, setControlsExpanded] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(true);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { zoom } = useViewport();
@@ -116,6 +119,74 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
       connection.targetHandle
     );
   }, [nodes, edges]);
+
+  // Layered auto-arrange algorithm with animated viewport fitting
+  const autoArrange = useCallback(() => {
+    const newNodes = [...nodes];
+    if (newNodes.length === 0) return;
+
+    const adj: Record<string, string[]> = {};
+    const inDegree: Record<string, number> = {};
+    newNodes.forEach((n) => {
+      adj[n.id] = [];
+      inDegree[n.id] = 0;
+    });
+    edges.forEach((e) => {
+      if (adj[e.source]) adj[e.source].push(e.target);
+      inDegree[e.target] = (inDegree[e.target] || 0) + 1;
+    });
+
+    const queue: string[] = [];
+    const levels: Record<string, number> = {};
+    newNodes.forEach((n) => {
+      if (inDegree[n.id] === 0) {
+        queue.push(n.id);
+        levels[n.id] = 0;
+      }
+    });
+
+    if (queue.length === 0 && newNodes.length > 0) {
+      queue.push(newNodes[0].id);
+      levels[newNodes[0].id] = 0;
+    }
+
+    while (queue.length > 0) {
+      const curr = queue.shift()!;
+      const currLevel = levels[curr] || 0;
+      (adj[curr] || []).forEach((nxt) => {
+        levels[nxt] = Math.max(levels[nxt] || 0, currLevel + 1);
+        queue.push(nxt);
+      });
+    }
+
+    const levelGroups: Record<number, string[]> = {};
+    newNodes.forEach((n) => {
+      const lvl = levels[n.id] || 0;
+      if (!levelGroups[lvl]) levelGroups[lvl] = [];
+      levelGroups[lvl].push(n.id);
+    });
+
+    const colWidth = 340;
+    const rowHeight = 360;
+    const arrangedNodes = newNodes.map((n) => {
+      const lvl = levels[n.id] || 0;
+      const group = levelGroups[lvl] || [n.id];
+      const index = group.indexOf(n.id);
+      const x = 100 + lvl * colWidth;
+      const y = 100 + index * rowHeight;
+      return {
+        ...n,
+        position: { x, y },
+      };
+    });
+
+    setNodes(arrangedNodes);
+    
+    // Auto center the whole workflow zoomed in/out
+    setTimeout(() => {
+      reactFlowInstance.fitView({ padding: 0.15, duration: 650 });
+    }, 50);
+  }, [nodes, edges, setNodes, reactFlowInstance]);
 
   // Fetch workflow state on mount
   useEffect(() => {
@@ -233,11 +304,17 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
         e.preventDefault();
         redo();
       }
+
+      // Auto-arrange Shift+A
+      if (e.shiftKey && (e.key === "A" || e.key === "a")) {
+        e.preventDefault();
+        autoArrange();
+      }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [reactFlowInstance, deleteNode, undo, redo]);
+  }, [reactFlowInstance, deleteNode, undo, redo, autoArrange]);
 
   // Export JSON
   const handleExportJson = () => {
@@ -408,113 +485,103 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
 
         {/* React Flow Editor */}
         <div className="flex-1 w-full h-full">
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onConnect={onConnect}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
-            fitView
-            maxZoom={1.5}
-            minZoom={0.2}
-            isValidConnection={isValidConnection}
-          >
-            <Background color="#cbd5e1" gap={16} size={1} />
-            
-            {/* Custom Bottom-Left Controls Panel */}
-            {!controlsExpanded ? (
-              <Panel position="bottom-left" className="pointer-events-auto">
+        <ReactFlow
+          nodes={nodes}
+          edges={edges}
+          onNodesChange={onNodesChange}
+          onEdgesChange={onEdgesChange}
+          onConnect={onConnect}
+          nodeTypes={nodeTypes}
+          edgeTypes={edgeTypes}
+          fitView
+          maxZoom={1.5}
+          minZoom={0.2}
+          isValidConnection={isValidConnection}
+          panOnDrag={isSelectMode ? [1, 2] : true}
+          nodesDraggable={isSelectMode}
+          elementsSelectable={isSelectMode}
+          className={isSelectMode ? "" : "cursor-grab active:cursor-grabbing"}
+        >
+          <Background color="#cbd5e1" gap={16} size={1} />
+          
+          {/* Custom Bottom-Left Controls Panel */}
+          {!controlsExpanded ? (
+            <Panel position="bottom-left" className="pointer-events-auto">
+              <button
+                onClick={() => setControlsExpanded(true)}
+                className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 shadow-sm transition"
+                title="Expand Controls"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </button>
+            </Panel>
+          ) : (
+            <Panel position="bottom-left" className="pointer-events-auto">
+              <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-sm">
                 <button
-                  onClick={() => setControlsExpanded(true)}
-                  className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 shadow-sm transition"
-                  title="Expand Controls"
+                  onClick={() => setControlsExpanded(false)}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 transition"
+                  title="Collapse"
                 >
-                  <ChevronRight className="h-4 w-4" />
+                  <ChevronLeft className="h-4 w-4" />
                 </button>
-              </Panel>
-            ) : (
-              <Panel position="bottom-left" className="pointer-events-auto">
-                <div className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-sm">
-                  <button
-                    onClick={() => setControlsExpanded(false)}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 transition"
-                    title="Collapse Controls"
-                  >
-                    <ChevronLeft className="h-4 w-4" />
-                  </button>
-                  
-                  <div className="h-4 w-[1px] bg-zinc-200" />
-                  
-                  <button
-                    onClick={() => undo()}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Undo"
-                  >
-                    <Undo2 className="h-4 w-4" />
-                  </button>
-                  <button
-                    onClick={() => redo()}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Redo"
-                  >
-                    <Redo2 className="h-4 w-4" />
-                  </button>
+                
+                <button
+                  onClick={() => reactFlowInstance.zoomOut()}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition"
+                  title="Zoom Out"
+                >
+                  <ZoomOut className="h-4 w-4" />
+                </button>
+                
+                <span className="text-[11px] font-bold text-zinc-600 min-w-[32px] text-center">
+                  {Math.round(zoom * 100)}%
+                </span>
+                
+                <button
+                  onClick={() => reactFlowInstance.zoomIn()}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition"
+                  title="Zoom In"
+                >
+                  <ZoomIn className="h-4 w-4" />
+                </button>
 
-                  <div className="h-4 w-[1px] bg-zinc-200" />
+                <div className="h-4 w-[1px] bg-zinc-200 mx-0.5" />
 
-                  <button
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Select Mode"
-                  >
-                    <MousePointer className="h-4 w-4 text-indigo-600" />
-                  </button>
-                  
-                  <button
-                    onClick={() => reactFlowInstance.zoomIn()}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Zoom In"
-                  >
-                    <ZoomIn className="h-4 w-4" />
-                  </button>
-                  
-                  <span className="text-[10px] font-bold text-zinc-500 min-w-[32px] text-center">
-                    {Math.round(zoom * 100)}%
-                  </span>
+                <button
+                  onClick={() => reactFlowInstance.fitView({ padding: 0.15, duration: 600 })}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition"
+                  title="Fit View"
+                >
+                  <Maximize className="h-3.5 w-3.5" />
+                </button>
 
-                  <button
-                    onClick={() => reactFlowInstance.zoomOut()}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Zoom Out"
-                  >
-                    <ZoomOut className="h-4 w-4" />
-                  </button>
+                <button
+                  onClick={autoArrange}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition relative group"
+                  title="Auto-arrange"
+                >
+                  <Grid className="h-3.5 w-3.5" />
+                  <div className="absolute bottom-10 left-1/2 -translate-x-1/2 bg-zinc-900 text-white text-[10px] py-1 px-2.5 rounded-lg whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none transition shadow-lg flex items-center gap-1.5 font-semibold">
+                    <span>Auto-arrange</span>
+                    <span className="bg-zinc-700 px-1 py-0.5 rounded text-[8px]">Shift+A</span>
+                  </div>
+                </button>
 
-                  <button
-                    onClick={() => reactFlowInstance.fitView()}
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Fit View"
-                  >
-                    <Maximize className="h-3.5 w-3.5" />
-                  </button>
-
-                  <button
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Grid Toggle"
-                  >
-                    <Grid className="h-3.5 w-3.5" />
-                  </button>
-
-                  <button
-                    className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-100 text-zinc-500 hover:text-zinc-800 transition"
-                    title="Pan Mode"
-                  >
-                    <Hand className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </Panel>
-            )}
+                <button
+                  onClick={() => setIsSelectMode(!isSelectMode)}
+                  className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
+                    isSelectMode
+                      ? "bg-indigo-600 text-white shadow-sm"
+                      : "hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800"
+                  }`}
+                  title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
+                >
+                  <Square className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </Panel>
+          )}
 
             {/* Custom Bottom-Right MiniMap Trigger and Widget */}
             <Panel position="bottom-right" className="pointer-events-auto flex flex-col items-end gap-2">
