@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --background: #fafafa;
+  --foreground: #111111;
+  --card: #ffffff;
+  --card-foreground: #111111;
+  --border: #e4e4e7;
+  --input: #e4e4e7;
+  --primary: #4f46e5;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #18181b;
+  --muted: #71717a;
+  --muted-foreground: #a1a1aa;
+  --ring: #4f46e5;
+  --radius: 8px;
+}
+
+body {
+  background-color: var(--background);
+  color: var(--foreground);
+}
+
+/* Custom Scrollbar styles matching sleek UI */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #d4d4d8;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #a1a1aa;
+}
+
+/* Pulsating glow animation for executing nodes */
+.executing-glow {
+  animation: pulsating-glow 1.5s infinite ease-in-out;
+  border-color: #4f46e5 !important;
+}
+
+@keyframes pulsating-glow {
+  0%, 100% {
+    box-shadow: 0 0 4px rgba(79, 70, 229, 0.4), inset 0 0 4px rgba(79, 70, 229, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 16px rgba(79, 70, 229, 0.8), inset 0 0 8px rgba(79, 70, 229, 0.4);
+  }
+}
+
+/* React Flow custom styles to match Galaxy.ai reference */
+.react-flow__handle {
+  width: 8px !important;
+  height: 8px !important;
+  background-color: #ffffff !important;
+  border: 2px solid #a1a1aa !important;
+  transition: all 0.2s ease;
+}
+
+.react-flow__handle:hover {
+  border-color: #4f46e5 !important;
+  background-color: #4f46e5 !important;
+  transform: scale(1.2);
+}
+
+.react-flow__edge-path {
+  stroke-width: 2.5px !important;
+  transition: stroke 0.2s ease;
+}
+
+.react-flow__minimap {
+  background-color: #ffffff !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+}
+
+.react-flow__controls {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+.react-flow__controls-button {
+  background: #ffffff !important;
+  border-bottom: 1px solid var(--border) !important;
+  color: #71717a !important;
+}
+
+.react-flow__controls-button:hover {
+  background: #f4f4f5 !important;
+  color: #18181b !important;
+}
+
+/* Selected node outline */
+.react-flow__node.selected > div {
+  border-color: #6366f1 !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.25) !important;
+}
