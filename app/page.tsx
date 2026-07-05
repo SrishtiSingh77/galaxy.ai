@@ -134,7 +134,7 @@ export default function LandingPage() {
           {/* Header Bar */}
           <div className="flex justify-between items-center w-full border-b border-zinc-100 pb-5">
             <div className="flex flex-col">
-              <h1 className="text-xl font-bold text-zinc-950">Flow</h1>
+              <h1 className="text-xl font-bold text-zinc-800">Flow</h1>
               <p className="text-xs text-zinc-400 mt-0.5">Build workflows or run models directly.</p>
             </div>
             {/* Top Right Header Login shortcut */}
@@ -159,7 +159,7 @@ export default function LandingPage() {
               </div>
 
               {/* Title */}
-              <h2 className="text-3xl md:text-[64px] font-bold tracking-[-0.03em] text-zinc-950 mt-2 leading-tight md:leading-[1.05]">
+              <h2 className="text-3xl md:text-[52px] font-bold tracking-[-0.03em] text-zinc-800 mt-2 leading-tight md:leading-[1.05]">
                 Build AI workflows,<br />run models instantly
               </h2>
 
@@ -195,7 +195,7 @@ export default function LandingPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 shadow-sm">
                 <Link2 className="h-4.5 w-4.5" />
               </div>
-              <h3 className="text-xs font-extrabold text-zinc-950 mt-4">Visual Workflow Builder</h3>
+              <h3 className="text-xs font-extrabold text-zinc-800 mt-4">Visual Workflow Builder</h3>
               <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-medium">
                 Drag-and-drop canvas to chain AI models together. No coding needed.
               </p>
@@ -206,7 +206,7 @@ export default function LandingPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 shadow-sm">
                 <Play className="h-4 w-4 fill-indigo-600" />
               </div>
-              <h3 className="text-xs font-extrabold text-zinc-950 mt-4">Run Models Directly</h3>
+              <h3 className="text-xs font-extrabold text-zinc-800 mt-4">Run Models Directly</h3>
               <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-medium">
                 Access 100+ AI models for text, image, video, and audio — all from one playground.
               </p>
@@ -217,7 +217,7 @@ export default function LandingPage() {
               <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-50 border border-indigo-100 text-indigo-600 shadow-sm">
                 <Zap className="h-4 w-4 fill-indigo-600 text-indigo-600" />
               </div>
-              <h3 className="text-xs font-extrabold text-zinc-950 mt-4">API Access</h3>
+              <h3 className="text-xs font-extrabold text-zinc-800 mt-4">API Access</h3>
               <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-medium">
                 Run any workflow via API. Manage keys and rate limits.
               </p>
@@ -227,7 +227,7 @@ export default function LandingPage() {
           {/* Popular Workflows templates */}
           <div className="mt-10 mb-8">
             <div className="flex flex-col">
-              <h3 className="text-xs font-bold text-zinc-950">Popular Workflows</h3>
+              <h3 className="text-xs font-bold text-zinc-800">Popular Workflows</h3>
               <p className="text-[10.5px] text-zinc-400 mt-0.5">Sign in to explore and use pre-built templates.</p>
             </div>
 
@@ -247,7 +247,7 @@ export default function LandingPage() {
                     <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-50 border border-zinc-200 text-zinc-600">
                       <Icon className="h-4.5 w-4.5" />
                     </div>
-                    <h4 className="text-xs font-extrabold text-zinc-950 mt-4">{tmpl.title}</h4>
+                    <h4 className="text-xs font-extrabold text-zinc-800 mt-4">{tmpl.title}</h4>
                     <p className="text-[10.5px] text-zinc-500 mt-1.5 leading-relaxed font-medium">
                       {tmpl.desc}
                     </p>
