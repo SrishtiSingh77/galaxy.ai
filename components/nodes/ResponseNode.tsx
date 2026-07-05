@@ -36,8 +36,14 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
           type="target"
           position={Position.Left}
           id="result"
-          style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
-          className="!w-2 !h-2 hover:scale-125 transition-transform"
+          style={{
+            width: "8px",
+            height: "8px",
+            backgroundColor: isResultConnected ? "#f97316" : "#ffffff",
+            borderColor: "#f97316",
+            borderWidth: "2px",
+          }}
+          className="hover:scale-125 transition-transform"
         />
 
         {/* Connection status */}

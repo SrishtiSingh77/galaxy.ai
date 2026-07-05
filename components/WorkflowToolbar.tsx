@@ -208,11 +208,10 @@ export default function WorkflowToolbar() {
         {/* Add Sticky Note */}
         <button
           onClick={handleAddStickyNote}
-          className="flex h-8 w-12 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 transition-all border border-transparent hover:border-zinc-200 gap-1"
+          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 transition-all border border-transparent hover:border-zinc-200"
           title="Add Sticky Note"
         >
           <StickyNote className="h-4.5 w-4.5" />
-          <span className="text-[10px] font-bold text-zinc-500">+</span>
         </button>
 
         <div className="h-5 border-r border-zinc-200 mx-0.5" />

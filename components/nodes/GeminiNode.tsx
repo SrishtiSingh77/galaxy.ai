@@ -131,8 +131,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="prompt"
-            style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
-            className="!w-2 !h-2 hover:scale-125 transition-transform"
+            style={{ width: "8px", height: "8px", backgroundColor: "#f97316", borderColor: "#f97316" }}
+            className="hover:scale-125 transition-transform"
           />
           <span className="text-[11px] font-bold text-zinc-500">Prompt*</span>
           <textarea
@@ -153,8 +153,14 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="systemPrompt"
-            style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
-            className="!w-2 !h-2 hover:scale-125 transition-transform"
+            style={{
+              width: "8px",
+              height: "8px",
+              backgroundColor: isSystemPromptConnected ? "#f97316" : "#ffffff",
+              borderColor: "#f97316",
+              borderWidth: "2px",
+            }}
+            className="hover:scale-125 transition-transform"
           />
           <span className="text-[11px] font-bold text-zinc-500">System Prompt</span>
           <textarea
@@ -177,8 +183,14 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="image"
-              style={{ backgroundColor: "#ec4899", borderColor: "#ec4899", borderWidth: "2px" }}
-              className="!w-2 !h-2 hover:scale-125 transition-transform"
+              style={{
+                width: "8px",
+                height: "8px",
+                backgroundColor: isImageConnected ? "#ec4899" : "#ffffff",
+                borderColor: "#ec4899",
+                borderWidth: "2px",
+              }}
+              className="hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">Image (Vision)</span>
             {isImageConnected ? (
@@ -215,8 +227,14 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="video"
-              style={{ backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }}
-              className="!w-2 !h-2 hover:scale-125 transition-transform"
+              style={{
+                width: "8px",
+                height: "8px",
+                backgroundColor: isVideoConnected ? "#8b5cf6" : "#ffffff",
+                borderColor: "#8b5cf6",
+                borderWidth: "2px",
+              }}
+              className="hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">Video</span>
             {isVideoConnected ? (
@@ -253,8 +271,14 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="audio"
-              style={{ backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }}
-              className="!w-2 !h-2 hover:scale-125 transition-transform"
+              style={{
+                width: "8px",
+                height: "8px",
+                backgroundColor: isAudioConnected ? "#8b5cf6" : "#ffffff",
+                borderColor: "#8b5cf6",
+                borderWidth: "2px",
+              }}
+              className="hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">Audio</span>
             {isAudioConnected ? (
@@ -291,8 +315,14 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="file"
-              style={{ backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }}
-              className="!w-2 !h-2 hover:scale-125 transition-transform"
+              style={{
+                width: "8px",
+                height: "8px",
+                backgroundColor: isFileConnected ? "#8b5cf6" : "#ffffff",
+                borderColor: "#8b5cf6",
+                borderWidth: "2px",
+              }}
+              className="hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">File</span>
             {isFileConnected ? (
@@ -390,8 +420,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="source"
             position={Position.Right}
             id="response"
-            style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
-            className="!w-2 !h-2 hover:scale-125 transition-transform"
+            style={{ width: "8px", height: "8px", backgroundColor: "#18181b", borderColor: "#18181b" }}
+            className="hover:scale-125 transition-transform"
           />
         </div>
       </div>

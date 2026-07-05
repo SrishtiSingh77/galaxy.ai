@@ -219,30 +219,32 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     takeSnapshot();
     
     // Setup beautiful edge styles depending on datatype
-    let edgeStyle = { stroke: "#f59e0b" };
+    let edgeStyle = { stroke: "#f97316" }; // default to orange text/prompt
     const field = sourceNode?.data.fields?.find((f) => f.id === connection.sourceHandle || f.name === connection.sourceHandle);
-    const isImage = 
-      field?.type === "image_field" || 
-      sourceNode?.type === "cropImage" || 
-      connection.sourceHandle === "outputImage" ||
-      connection.sourceHandle === "image";
 
-    const isPurpleType =
+    const isStandardOutput = 
+      connection.sourceHandle === "response" || 
+      connection.sourceHandle === "outputImage";
+
+    const isImageOrNumeric = 
+      field?.type === "image_field" || 
+      field?.type === "numeric_field";
+
+    const isPurpleOrBlue =
       field?.type === "video_field" ||
       field?.type === "audio_field" ||
       field?.type === "media_field" ||
       field?.type === "file_field" ||
-      field?.type === "boolean_field" ||
-      connection.sourceHandle === "video" ||
-      connection.sourceHandle === "audio" ||
-      connection.sourceHandle === "file";
+      field?.type === "boolean_field";
 
-    if (isImage) {
-      edgeStyle = { stroke: "#ec4899" }; // Deep Pink for images
-    } else if (isPurpleType) {
-      edgeStyle = { stroke: "#8b5cf6" }; // Purple for video/audio/files
+    if (isStandardOutput) {
+      edgeStyle = { stroke: "#27272a" }; // Solid gray/black for standard outputs
+    } else if (isImageOrNumeric) {
+      edgeStyle = { stroke: "#ec4899" }; // Pink/magenta for image and numeric fields
+    } else if (isPurpleOrBlue) {
+      edgeStyle = { stroke: "#8b5cf6" }; // Purple/blue for media/booleans
     } else {
-      edgeStyle = { stroke: "#f59e0b" }; // Yellow/Orange for text
+      edgeStyle = { stroke: "#f97316" }; // Orange for text/prompts
     }
 
     const newEdge: Edge = {

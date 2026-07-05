@@ -340,12 +340,12 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                   id={field.name}
                   style={
                     field.type === "text_field"
-                      ? { backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }
+                      ? { width: "8px", height: "8px", backgroundColor: "#f97316", borderColor: "#f97316" }
                       : field.type === "image_field"
-                      ? { backgroundColor: "#ec4899", borderColor: "#ec4899", borderWidth: "2px" }
-                      : { backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }
+                      ? { width: "8px", height: "8px", backgroundColor: "#ec4899", borderColor: "#ec4899" }
+                      : { width: "8px", height: "8px", backgroundColor: "#8b5cf6", borderColor: "#8b5cf6" }
                   }
-                  className="!w-2 !h-2 hover:scale-125 transition-transform"
+                  className="hover:scale-125 transition-transform"
                 />
               </div>
             );

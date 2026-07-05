@@ -619,11 +619,11 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
                 <button
                   onClick={() => setIsSelectMode(!isSelectMode)}
                   className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
-                    !isSelectMode
+                    isSelectMode
                       ? "bg-zinc-800 text-white shadow-sm hover:bg-zinc-900"
                       : "hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800"
                   }`}
-                  title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
+                  title={isSelectMode ? "Select Mode (Move nodes freely)" : "Switch to Select Mode"}
                 >
                   {isSelectMode ? (
                     <Square className="h-3.5 w-3.5" />
