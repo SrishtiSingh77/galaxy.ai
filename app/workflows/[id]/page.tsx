@@ -374,10 +374,14 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
         <div className="flex flex-col items-center gap-6 w-full">
           <button
             onClick={() => router.push("/dashboard")}
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-950 text-white font-extrabold text-lg shadow-md transition hover:scale-105"
+            className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-md transition hover:scale-105"
             title="Go to Dashboard"
           >
-            M
+            <svg viewBox="0 0 100 100" className="w-5 h-5 fill-none stroke-current" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 75 V28 Q20 22 25 24 L45 52" />
+              <path d="M80 75 V28 Q80 22 75 24 L55 52" />
+              <path d="M50 55 Q50 65 60 65 Q50 65 50 75 Q50 65 40 65 Q50 65 50 55 Z" fill="currentColor" stroke="none" />
+            </svg>
           </button>
           <div className="w-8 border-b border-[#f4f4f5]" />
           <button

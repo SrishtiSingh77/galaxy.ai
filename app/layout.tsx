@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter } from "next/font/google";
+import { Outfit } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import CandidateLog from "@/components/CandidateLog";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"] });
+const outfit = Outfit({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "Py - AI Workflow Builder",
@@ -19,7 +19,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${inter.className} bg-[#fafafa] text-[#1a1a1a] antialiased`}>
+        <body className={`${outfit.className} bg-[#fafafa] text-[#1a1a1a] antialiased`}>
           <CandidateLog />
           {children}
         </body>

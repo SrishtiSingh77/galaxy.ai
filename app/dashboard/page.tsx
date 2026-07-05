@@ -382,9 +382,12 @@ export default function Dashboard() {
       {/* LEFT SIDEBAR */}
       <div className="flex w-[68px] flex-col items-center justify-between border-r border-[#e4e4e7] bg-white py-6">
         <div className="flex flex-col items-center gap-6 w-full">
-          {/* Logo */}
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-950 text-white font-extrabold text-lg shadow-md transition hover:scale-105">
-            M
+          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-md transition hover:scale-105">
+            <svg viewBox="0 0 100 100" className="w-5 h-5 fill-none stroke-current" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M20 75 V28 Q20 22 25 24 L45 52" />
+              <path d="M80 75 V28 Q80 22 75 24 L55 52" />
+              <path d="M50 55 Q50 65 60 65 Q50 65 50 75 Q50 65 40 65 Q50 65 50 55 Z" fill="currentColor" stroke="none" />
+            </svg>
           </div>
 
           <div className="w-8 border-b border-[#f4f4f5]" />
