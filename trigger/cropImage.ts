@@ -54,9 +54,10 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
   try {
     if (imageUrl.startsWith("data:image")) {
       console.log("Data URL image received. Decoding base64...");
-      const matches = imageUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
-      if (matches && matches.length === 3) {
-        const buffer = Buffer.from(matches[2], "base64");
+      const commaIndex = imageUrl.indexOf(",");
+      if (commaIndex !== -1) {
+        const base64Data = imageUrl.substring(commaIndex + 1);
+        const buffer = Buffer.from(base64Data, "base64");
         fs.writeFileSync(inputPath, buffer);
       } else {
         throw new Error("Invalid base64 data URL format");
@@ -66,9 +67,9 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
       await downloadFile(imageUrl, inputPath);
     }
 
-    // Execute prebuilt FFmpeg crop command
+    // Execute prebuilt FFmpeg crop command with trunc() to prevent float dimension errors
     const ffmpegInstaller = eval("require")("@ffmpeg-installer/ffmpeg");
-    const ffmpegCmd = `"${ffmpegInstaller.path}" -y -i "${inputPath}" -vf "crop=iw*${width/100}:ih*${height/100}:iw*${x/100}:ih*${y/100}" "${outputPath}"`;
+    const ffmpegCmd = `"${ffmpegInstaller.path}" -y -i "${inputPath}" -vf "crop=trunc(iw*${width/100}):trunc(ih*${height/100}):trunc(iw*${x/100}):trunc(ih*${y/100})" "${outputPath}"`;
     
     console.log("Executing ffmpeg command:", ffmpegCmd);
     await new Promise<void>((resolve, reject) => {

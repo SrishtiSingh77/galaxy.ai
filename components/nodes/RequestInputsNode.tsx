@@ -102,6 +102,16 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
     setUploadingFieldId(fieldId);
     setUploadProgress(0);
 
+    // 1. Immediately set base64 URL so UI is responsive and has a valid value
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Url = reader.result as string;
+      updateFields(
+        fields.map((f) => (f.id === fieldId ? { ...f, value: base64Url } : f))
+      );
+    };
+    reader.readAsDataURL(file);
+
     const allowedTypes = type === "image_field" ? ["image/*"] : (type === "audio_field" ? ["audio/*"] : (type === "video_field" ? ["video/*"] : []));
 
     const uppyInstance = new Uppy({
@@ -139,14 +149,7 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
 
     uppyInstance.on("error", (error) => {
       console.error("Transloadit Upload Error:", error);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Url = reader.result as string;
-        updateFields(
-          fields.map((f) => (f.id === fieldId ? { ...f, value: base64Url } : f))
-        );
-      };
-      reader.readAsDataURL(file);
+      // Already set to base64, just clear spinner
       setUploadingFieldId(null);
       setUploadProgress(0);
     });

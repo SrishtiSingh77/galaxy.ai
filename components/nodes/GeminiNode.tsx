@@ -56,6 +56,14 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
   const handleFileUpload = (type: string, file: File) => {
     setUploadingType(type);
 
+    // 1. Immediately set base64 URL so UI is responsive and backend has a valid asset fallback
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      const base64Url = reader.result as string;
+      handleUpdate({ [`${type}Val`]: base64Url });
+    };
+    reader.readAsDataURL(file);
+
     const uppyInstance = new Uppy({
       restrictions: { maxNumberOfFiles: 1 },
       autoProceed: true,
@@ -83,12 +91,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
 
     uppyInstance.on("error", (error) => {
       console.error("Gemini Asset Upload Error:", error);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64Url = reader.result as string;
-        handleUpdate({ [`${type}Val`]: base64Url });
-      };
-      reader.readAsDataURL(file);
+      // Already set to base64, just clear spinner
       setUploadingType(null);
     });
   };
