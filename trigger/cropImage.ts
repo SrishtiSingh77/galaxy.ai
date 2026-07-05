@@ -43,6 +43,11 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
     throw new Error("No image URL provided for cropping");
   }
 
+  const safeX = Math.max(0, Math.min(100, x));
+  const safeY = Math.max(0, Math.min(100, y));
+  const safeWidth = Math.max(1, Math.min(100, width));
+  const safeHeight = Math.max(1, Math.min(100, height));
+
   const tempDir = path.join(process.cwd(), "tmp");
   if (!fs.existsSync(tempDir)) {
     fs.mkdirSync(tempDir, { recursive: true });
@@ -69,7 +74,7 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
 
     // Execute prebuilt FFmpeg crop command with trunc() to prevent float dimension errors
     const ffmpegInstaller = eval("require")("@ffmpeg-installer/ffmpeg");
-    const ffmpegCmd = `"${ffmpegInstaller.path}" -y -i "${inputPath}" -vf "crop=trunc(iw*${width/100}):trunc(ih*${height/100}):trunc(iw*${x/100}):trunc(ih*${y/100})" "${outputPath}"`;
+    const ffmpegCmd = `"${ffmpegInstaller.path}" -y -i "${inputPath}" -vf "crop=trunc(iw*${safeWidth/100}):trunc(ih*${safeHeight/100}):trunc(iw*${safeX/100}):trunc(ih*${safeY/100})" "${outputPath}"`;
     
     console.log("Executing ffmpeg command:", ffmpegCmd);
     await new Promise<void>((resolve, reject) => {
