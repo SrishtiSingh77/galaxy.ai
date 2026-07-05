@@ -91,7 +91,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
 
   return (
     <div
-      className={`w-[300px] rounded-xl border border-zinc-200 bg-white p-3.5 shadow-sm hover:shadow-md transition-all ${
+      className={`w-[300px] rounded-xl border border-zinc-200/80 bg-white p-3.5 shadow-[0_12px_38px_-4px_rgba(0,0,0,0.08)] hover:shadow-[0_16px_48px_-6px_rgba(0,0,0,0.12)] transition-all ${
         isExecuting ? "executing-glow" : ""
       }`}
     >

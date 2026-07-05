@@ -19,6 +19,7 @@
     "@uppy/transloadit": "^3.3.0",
     "autoprefixer": "^10.4.19",
     "clsx": "^2.1.1",
+    "lenis": "^1.3.25",
     "lucide-react": "^0.408.0",
     "next": "^14.2.5",
     "postcss": "^8.4.39",

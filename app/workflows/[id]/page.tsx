@@ -506,7 +506,7 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
           elementsSelectable={isSelectMode}
           className={isSelectMode ? "" : "cursor-grab active:cursor-grabbing"}
         >
-          <Background color="#cbd5e1" gap={16} size={1} />
+          <Background color="#a1a1aa" gap={16} size={1.2} />
           
           {/* Custom Bottom-Left Controls Panel */}
           {!controlsExpanded ? (

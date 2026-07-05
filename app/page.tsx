@@ -159,7 +159,7 @@ export default function LandingPage() {
               </div>
 
               {/* Title */}
-              <h2 className="text-3xl md:text-[52px] font-bold tracking-[-0.03em] text-zinc-800 mt-2 leading-tight md:leading-[1.05]">
+              <h2 className="text-3xl md:text-[44px] font-bold tracking-[-0.03em] text-zinc-700 mt-2 leading-tight md:leading-[1.05]">
                 Build AI workflows,<br />run models instantly
               </h2>
 
