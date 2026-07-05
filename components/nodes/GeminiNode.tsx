@@ -131,7 +131,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="prompt"
-            className="!bg-white !border-zinc-400"
+            style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+            className="!w-2 !h-2 hover:scale-125 transition-transform"
           />
           <span className="text-[11px] font-bold text-zinc-500">Prompt*</span>
           <textarea
@@ -152,7 +153,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="systemPrompt"
-            className="!bg-white !border-zinc-400"
+            style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+            className="!w-2 !h-2 hover:scale-125 transition-transform"
           />
           <span className="text-[11px] font-bold text-zinc-500">System Prompt</span>
           <textarea
@@ -175,7 +177,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="image"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#ec4899", borderColor: "#ec4899", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">Image (Vision)</span>
             {isImageConnected ? (
@@ -212,7 +215,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="video"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">Video</span>
             {isVideoConnected ? (
@@ -249,7 +253,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="audio"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">Audio</span>
             {isAudioConnected ? (
@@ -286,7 +291,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="file"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <span className="text-[11px] font-semibold text-zinc-600">File</span>
             {isFileConnected ? (
@@ -384,7 +390,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="source"
             position={Position.Right}
             id="response"
-            className="!bg-white !border-zinc-400 hover:!border-indigo-500 hover:!bg-indigo-500"
+            style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+            className="!w-2 !h-2 hover:scale-125 transition-transform"
           />
         </div>
       </div>

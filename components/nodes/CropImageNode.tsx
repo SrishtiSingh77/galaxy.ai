@@ -59,7 +59,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="inputImage"
-            className="!bg-white !border-zinc-400"
+            style={{ backgroundColor: "#ec4899", borderColor: "#ec4899", borderWidth: "2px" }}
+            className="!w-2 !h-2 hover:scale-125 transition-transform"
           />
           <span className="text-xs font-medium text-zinc-500">Input Image</span>
           <span className="text-[10px] text-zinc-400 italic">
@@ -75,7 +76,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="x"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <div className="flex justify-between text-[11px] font-semibold text-zinc-600">
               <span>X Position (%)</span>
@@ -98,7 +100,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="y"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <div className="flex justify-between text-[11px] font-semibold text-zinc-600">
               <span>Y Position (%)</span>
@@ -121,7 +124,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="width"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <div className="flex justify-between text-[11px] font-semibold text-zinc-600">
               <span>Width (%)</span>
@@ -144,7 +148,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="height"
-              className="!bg-white !border-zinc-400"
+              style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+              className="!w-2 !h-2 hover:scale-125 transition-transform"
             />
             <div className="flex justify-between text-[11px] font-semibold text-zinc-600">
               <span>Height (%)</span>
@@ -184,7 +189,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
             type="source"
             position={Position.Right}
             id="outputImage"
-            className="!bg-white !border-zinc-400 hover:!border-indigo-500 hover:!bg-indigo-500"
+            style={{ backgroundColor: "#ec4899", borderColor: "#ec4899", borderWidth: "2px" }}
+            className="!w-2 !h-2 hover:scale-125 transition-transform"
           />
         </div>
       </div>

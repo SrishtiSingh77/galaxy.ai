@@ -338,7 +338,14 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                   type="source"
                   position={Position.Right}
                   id={field.name}
-                  className="!bg-white !border-zinc-400 hover:!border-indigo-500 hover:!bg-indigo-500"
+                  style={
+                    field.type === "text_field"
+                      ? { backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }
+                      : field.type === "image_field"
+                      ? { backgroundColor: "#ec4899", borderColor: "#ec4899", borderWidth: "2px" }
+                      : { backgroundColor: "#8b5cf6", borderColor: "#8b5cf6", borderWidth: "2px" }
+                  }
+                  className="!w-2 !h-2 hover:scale-125 transition-transform"
                 />
               </div>
             );

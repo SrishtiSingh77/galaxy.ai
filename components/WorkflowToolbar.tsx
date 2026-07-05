@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useMemo } from "react";
-import { Plus, Search, Image as ImageIcon, Bot, Video, Music, Layers, Copy, Undo2, Redo2 } from "lucide-react";
+import { Plus, Search, Image as ImageIcon, Bot, Video, Music, Layers, Copy, StickyNote } from "lucide-react";
 import { useWorkflowStore } from "@/store/useWorkflowStore";
 
 interface NodePickerProps {
@@ -162,43 +162,65 @@ export default function WorkflowToolbar() {
     addNode(newNode);
   };
 
+  const handleAddStickyNote = () => {
+    const existingNodes = useWorkflowStore.getState().nodes;
+    let x = 400;
+    let y = 300;
+    const boxWidth = 200;
+    const boxHeight = 200;
+    const padding = 40;
+    let overlaps = true;
+
+    while (overlaps) {
+      overlaps = false;
+      for (const node of existingNodes) {
+        const nx = node.position.x;
+        const ny = node.position.y;
+        const xOverlap = Math.abs(x - nx) < (boxWidth + padding);
+        const yOverlap = Math.abs(y - ny) < (boxHeight + padding);
+        if (xOverlap && yOverlap) {
+          x += 240;
+          if (x > 1500) {
+            x = 400;
+            y += 240;
+          }
+          overlaps = true;
+          break;
+        }
+      }
+    }
+
+    const id = `sticky-${Date.now()}`;
+    const newNode = {
+      id,
+      type: "stickyNote",
+      position: { x, y },
+      data: { text: "", color: "yellow", fontSize: 14, isBold: false },
+    };
+    addNode(newNode);
+  };
+
   return (
     <div className="absolute bottom-6 left-1/2 z-40 -translate-x-1/2">
       {pickerOpen && <NodePicker onSelect={handleSelectNode} onClose={() => setPickerOpen(false)} />}
 
-      <div className="flex items-center gap-1.5 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl">
-        {/* Undo / Redo */}
+      <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl">
+        {/* Add Sticky Note */}
         <button
-          onClick={undo}
-          disabled={undoStack.length === 0}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-950 transition-all disabled:opacity-40"
-          title="Undo"
+          onClick={handleAddStickyNote}
+          className="flex h-8 w-12 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 transition-all border border-transparent hover:border-zinc-200 gap-1"
+          title="Add Sticky Note"
         >
-          <Undo2 className="h-4 w-4" />
-        </button>
-        <button
-          onClick={redo}
-          disabled={redoStack.length === 0}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-950 transition-all disabled:opacity-40"
-          title="Redo"
-        >
-          <Redo2 className="h-4 w-4" />
+          <StickyNote className="h-4.5 w-4.5" />
+          <span className="text-[10px] font-bold text-zinc-500">+</span>
         </button>
 
-        <div className="h-5 border-r border-zinc-200 mx-1" />
+        <div className="h-5 border-r border-zinc-200 mx-0.5" />
 
-        {/* Categories / Template Toggle */}
-        <button
-          onClick={() => alert("Ready to customize canvas.")}
-          className="flex h-8 w-8 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-950 transition-all"
-        >
-          <Copy className="h-4 w-4" />
-        </button>
-
-        {/* Floating Add Button */}
+        {/* Floating Add Node Button (not black anymore) */}
         <button
           onClick={() => setPickerOpen(!pickerOpen)}
-          className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-950 text-white hover:bg-zinc-800 transition-all shadow-md"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-zinc-200 bg-white hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition-all shadow-sm"
           title="Add Node"
         >
           <Plus className="h-5 w-5" />

@@ -36,7 +36,8 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
           type="target"
           position={Position.Left}
           id="result"
-          className="!bg-white !border-zinc-400"
+          style={{ backgroundColor: "#f59e0b", borderColor: "#f59e0b", borderWidth: "2px" }}
+          className="!w-2 !h-2 hover:scale-125 transition-transform"
         />
 
         {/* Connection status */}

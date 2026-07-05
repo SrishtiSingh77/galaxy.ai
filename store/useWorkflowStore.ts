@@ -219,17 +219,30 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     takeSnapshot();
     
     // Setup beautiful edge styles depending on datatype
-    let edgeStyle = { stroke: "#a1a1aa" };
+    let edgeStyle = { stroke: "#f59e0b" };
     const field = sourceNode?.data.fields?.find((f) => f.id === connection.sourceHandle || f.name === connection.sourceHandle);
     const isImage = 
       field?.type === "image_field" || 
       sourceNode?.type === "cropImage" || 
-      connection.sourceHandle === "outputImage";
+      connection.sourceHandle === "outputImage" ||
+      connection.sourceHandle === "image";
+
+    const isPurpleType =
+      field?.type === "video_field" ||
+      field?.type === "audio_field" ||
+      field?.type === "media_field" ||
+      field?.type === "file_field" ||
+      field?.type === "boolean_field" ||
+      connection.sourceHandle === "video" ||
+      connection.sourceHandle === "audio" ||
+      connection.sourceHandle === "file";
 
     if (isImage) {
-      edgeStyle = { stroke: "#3b82f6" }; // Beautiful Blue for images
+      edgeStyle = { stroke: "#ec4899" }; // Deep Pink for images
+    } else if (isPurpleType) {
+      edgeStyle = { stroke: "#8b5cf6" }; // Purple for video/audio/files
     } else {
-      edgeStyle = { stroke: "#fb923c" }; // Vibrant Orange for text
+      edgeStyle = { stroke: "#f59e0b" }; // Yellow/Orange for text
     }
 
     const newEdge: Edge = {

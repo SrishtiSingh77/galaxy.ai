@@ -44,6 +44,7 @@ import {
   Map,
   X,
   Square,
+  Command,
 } from "lucide-react";
 
 // Import custom components
@@ -51,6 +52,7 @@ import RequestInputsNode from "@/components/nodes/RequestInputsNode";
 import ResponseNode from "@/components/nodes/ResponseNode";
 import CropImageNode from "@/components/nodes/CropImageNode";
 import GeminiNode from "@/components/nodes/GeminiNode";
+import StickyNoteNode from "@/components/nodes/StickyNoteNode";
 import CustomEdge from "@/components/edges/CustomEdge";
 import WorkflowToolbar from "@/components/WorkflowToolbar";
 import HistorySidebar from "@/components/HistorySidebar";
@@ -61,6 +63,7 @@ const nodeTypes = {
   response: ResponseNode,
   cropImage: CropImageNode,
   gemini: GeminiNode,
+  stickyNote: StickyNoteNode,
 };
 
 // Define edge types
@@ -92,6 +95,8 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
   const setHistoryOpen = useWorkflowStore((state) => state.setHistorySidebarOpen);
   const undo = useWorkflowStore((state) => state.undo);
   const redo = useWorkflowStore((state) => state.redo);
+  const undoStack = useWorkflowStore((state) => state.undoStack);
+  const redoStack = useWorkflowStore((state) => state.redoStack);
   const deleteNode = useWorkflowStore((state) => state.deleteNode);
 
   const [loading, setLoading] = useState(true);
@@ -521,37 +526,74 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
             </Panel>
           ) : (
             <Panel position="bottom-left" className="pointer-events-auto">
-              <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-sm">
+              <div className="flex items-center gap-1 rounded-xl border border-zinc-200 bg-white p-1.5 shadow-xl">
+                {/* Collapse */}
                 <button
                   onClick={() => setControlsExpanded(false)}
                   className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 transition"
-                  title="Collapse"
+                  title="Collapse Controls"
                 >
                   <ChevronLeft className="h-4 w-4" />
                 </button>
                 
+                <div className="h-4 w-[1px] bg-zinc-200 mx-0.5" />
+
+                {/* Undo */}
+                <button
+                  onClick={undo}
+                  disabled={undoStack.length === 0}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                  title="Undo"
+                >
+                  <Undo2 className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Redo */}
+                <button
+                  onClick={redo}
+                  disabled={redoStack.length === 0}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 disabled:opacity-30 disabled:hover:bg-transparent transition"
+                  title="Redo"
+                >
+                  <Redo2 className="h-3.5 w-3.5" />
+                </button>
+
+                {/* Command Shortcuts */}
+                <button
+                  onClick={() => alert("Keyboard shortcuts:\n• Zoom: Mouse wheel / Pinch\n• Pan: Drag background\n• Arrange: Shift+A\n• Delete Connection: Hover and click ✕\n• Delete Node: Select and press Delete")}
+                  className="flex h-7 w-7 items-center justify-center rounded-lg text-zinc-500 hover:bg-zinc-50 hover:text-zinc-800 transition"
+                  title="Keyboard Shortcuts"
+                >
+                  <Command className="h-3.5 w-3.5" />
+                </button>
+
+                <div className="h-4 w-[1px] bg-zinc-200 mx-0.5" />
+
+                {/* Zoom Out */}
                 <button
                   onClick={() => reactFlowInstance.zoomOut()}
                   className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition"
                   title="Zoom Out"
                 >
-                  <ZoomOut className="h-4 w-4" />
+                  <ZoomOut className="h-3.5 w-3.5" />
                 </button>
                 
-                <span className="text-[11px] font-bold text-zinc-600 min-w-[32px] text-center">
+                <span className="text-[11px] font-bold text-zinc-500 min-w-[32px] text-center">
                   {Math.round(zoom * 100)}%
                 </span>
                 
+                {/* Zoom In */}
                 <button
                   onClick={() => reactFlowInstance.zoomIn()}
                   className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition"
                   title="Zoom In"
                 >
-                  <ZoomIn className="h-4 w-4" />
+                  <ZoomIn className="h-3.5 w-3.5" />
                 </button>
 
                 <div className="h-4 w-[1px] bg-zinc-200 mx-0.5" />
 
+                {/* Fit View */}
                 <button
                   onClick={() => reactFlowInstance.fitView({ padding: 0.15, duration: 600 })}
                   className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition"
@@ -560,6 +602,7 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
                   <Maximize className="h-3.5 w-3.5" />
                 </button>
 
+                {/* Auto Arrange */}
                 <button
                   onClick={autoArrange}
                   className="flex h-7 w-7 items-center justify-center rounded-lg hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800 transition relative group"
@@ -572,16 +615,21 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
                   </div>
                 </button>
 
+                {/* Pan/Select Mode toggle */}
                 <button
                   onClick={() => setIsSelectMode(!isSelectMode)}
                   className={`flex h-7 w-7 items-center justify-center rounded-lg transition ${
-                    isSelectMode
-                      ? "bg-indigo-600 text-white shadow-sm"
+                    !isSelectMode
+                      ? "bg-zinc-800 text-white shadow-sm hover:bg-zinc-900"
                       : "hover:bg-zinc-50 text-zinc-500 hover:text-zinc-800"
                   }`}
                   title={isSelectMode ? "Switch to Pan Mode" : "Switch to Select Mode"}
                 >
-                  <Square className="h-3.5 w-3.5" />
+                  {isSelectMode ? (
+                    <Square className="h-3.5 w-3.5" />
+                  ) : (
+                    <Hand className="h-3.5 w-3.5" />
+                  )}
                 </button>
               </div>
             </Panel>
