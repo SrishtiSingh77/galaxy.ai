@@ -139,10 +139,14 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
 
     uppyInstance.on("error", (error) => {
       console.error("Transloadit Upload Error:", error);
-      const mockUrl = URL.createObjectURL(file);
-      updateFields(
-        fields.map((f) => (f.id === fieldId ? { ...f, value: mockUrl } : f))
-      );
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result as string;
+        updateFields(
+          fields.map((f) => (f.id === fieldId ? { ...f, value: base64Url } : f))
+        );
+      };
+      reader.readAsDataURL(file);
       setUploadingFieldId(null);
       setUploadProgress(0);
     });

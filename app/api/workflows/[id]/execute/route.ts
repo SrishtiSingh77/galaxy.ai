@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { runCropImage } from "@/trigger/cropImage";
-import { geminiTask } from "@/trigger/geminiTask";
+import { runGemini } from "@/trigger/geminiTask";
 import { z } from "zod";
 
 const executeWorkflowSchema = z.object({
@@ -228,7 +228,7 @@ async function runOrchestrator(
           let responseText = "";
           try {
             console.log(`Scheduling Gemini task for node ${nodeId}...`);
-            responseText = await geminiTask.run({
+            responseText = await runGemini({
               modelName: node.data.model || "gemini-3.1-pro",
               prompt,
               systemPrompt,

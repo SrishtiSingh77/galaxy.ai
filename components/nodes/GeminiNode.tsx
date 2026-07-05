@@ -83,8 +83,12 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
 
     uppyInstance.on("error", (error) => {
       console.error("Gemini Asset Upload Error:", error);
-      const mockUrl = URL.createObjectURL(file);
-      handleUpdate({ [`${type}Val`]: mockUrl });
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64Url = reader.result as string;
+        handleUpdate({ [`${type}Val`]: base64Url });
+      };
+      reader.readAsDataURL(file);
       setUploadingType(null);
     });
   };

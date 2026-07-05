@@ -42,131 +42,145 @@ const fetchAssetAsBase64 = (url: string): Promise<{ data: string; mimeType: stri
   });
 };
 
-export const geminiTask = task({
-  id: "gemini-llm",
-  run: async (payload: GeminiPayload) => {
-    console.log("Starting Gemini Task with payload:", payload);
+export const runGemini = async (payload: GeminiPayload): Promise<string> => {
+  console.log("Starting Gemini Task with payload:", payload);
 
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY environment variable is not configured.");
-    }
+  const apiKey = process.env.GEMINI_API_KEY;
+  if (!apiKey) {
+    throw new Error("GEMINI_API_KEY environment variable is not configured.");
+  }
 
-    const {
-      modelName,
-      prompt,
-      systemPrompt,
-      imageUrls = [],
-      videoUrl,
-      audioUrl,
-      fileUrl,
-      temperature,
-      maxTokens,
-    } = payload;
+  const {
+    modelName,
+    prompt,
+    systemPrompt,
+    imageUrls = [],
+    videoUrl,
+    audioUrl,
+    fileUrl,
+    temperature,
+    maxTokens,
+  } = payload;
 
-    const genAI = new GoogleGenerativeAI(apiKey);
+  const genAI = new GoogleGenerativeAI(apiKey);
 
-    // Map model name to Gemini API models
-    let apiModel = "gemini-1.5-pro"; // Default robust model
-    if (modelName.includes("flash")) {
-      apiModel = "gemini-1.5-flash";
-    } else if (modelName.includes("1.5-pro")) {
-      apiModel = "gemini-1.5-pro";
-    } else if (modelName.includes("2.5-pro")) {
-      apiModel = "gemini-2.5-pro";
-    } else if (modelName.includes("3.1-pro")) {
-      apiModel = "gemini-2.5-pro"; // Map gemini-3.1-pro to gemini-2.5-pro or gemini-1.5-pro since 3.1 is the custom name
-    }
+  // Map model name to Gemini API models
+  let apiModel = "gemini-1.5-pro"; // Default robust model
+  if (modelName.includes("flash")) {
+    apiModel = "gemini-1.5-flash";
+  } else if (modelName.includes("1.5-pro")) {
+    apiModel = "gemini-1.5-pro";
+  } else if (modelName.includes("2.5-pro")) {
+    apiModel = "gemini-2.5-pro";
+  } else if (modelName.includes("3.1-pro")) {
+    apiModel = "gemini-2.5-pro"; // Map custom naming
+  }
 
-    console.log(`Using Gemini model: ${apiModel}`);
+  console.log(`Using Gemini model: ${apiModel}`);
 
-    const modelInstance = genAI.getGenerativeModel({
-      model: apiModel,
-      ...(systemPrompt && { systemInstruction: systemPrompt }),
-    });
+  const modelInstance = genAI.getGenerativeModel({
+    model: apiModel,
+    ...(systemPrompt && { systemInstruction: systemPrompt }),
+  });
 
-    const contents: any[] = [prompt];
+  const contents: any[] = [prompt];
 
-    // Download and attach images (supports multi-image connections)
-    for (const url of imageUrls) {
-      if (url && url.startsWith("http")) {
-        try {
-          console.log(`Fetching image asset: ${url}`);
-          const asset = await fetchAssetAsBase64(url);
+  // Process optional assets if they exist
+  // Process remote images or base64 images
+  for (const imgUrl of imageUrls) {
+    if (imgUrl) {
+      try {
+        if (imgUrl.startsWith("data:image")) {
+          const matches = imgUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+          if (matches && matches.length === 3) {
+            contents.push({
+              inlineData: {
+                data: matches[2],
+                mimeType: matches[1],
+              },
+            });
+          }
+        } else if (imgUrl.startsWith("http")) {
+          console.log(`Fetching remote image asset: ${imgUrl}`);
+          const asset = await fetchAssetAsBase64(imgUrl);
           contents.push({
             inlineData: {
               data: asset.data,
               mimeType: asset.mimeType,
             },
           });
-        } catch (err) {
-          console.error(`Failed to fetch image asset from url: ${url}`, err);
         }
-      }
-    }
-
-    // Download and attach video
-    if (videoUrl && videoUrl.startsWith("http")) {
-      try {
-        console.log(`Fetching video asset: ${videoUrl}`);
-        const asset = await fetchAssetAsBase64(videoUrl);
-        contents.push({
-          inlineData: {
-            data: asset.data,
-            mimeType: asset.mimeType,
-          },
-        });
       } catch (err) {
-        console.error(`Failed to fetch video asset from url: ${videoUrl}`, err);
+        console.error(`Failed to fetch image asset from url: ${imgUrl}`, err);
       }
     }
+  }
 
-    // Download and attach audio
-    if (audioUrl && audioUrl.startsWith("http")) {
-      try {
-        console.log(`Fetching audio asset: ${audioUrl}`);
-        const asset = await fetchAssetAsBase64(audioUrl);
-        contents.push({
-          inlineData: {
-            data: asset.data,
-            mimeType: asset.mimeType,
-          },
-        });
-      } catch (err) {
-        console.error(`Failed to fetch audio asset from url: ${audioUrl}`, err);
-      }
+  if (videoUrl && videoUrl.startsWith("http")) {
+    try {
+      console.log(`Fetching remote video asset: ${videoUrl}`);
+      const asset = await fetchAssetAsBase64(videoUrl);
+      contents.push({
+        inlineData: {
+          data: asset.data,
+          mimeType: asset.mimeType,
+        },
+      });
+    } catch (err) {
+      console.error(`Failed to fetch video asset from url: ${videoUrl}`, err);
     }
+  }
 
-    // Download and attach generic file
-    if (fileUrl && fileUrl.startsWith("http")) {
-      try {
-        console.log(`Fetching file asset: ${fileUrl}`);
-        const asset = await fetchAssetAsBase64(fileUrl);
-        contents.push({
-          inlineData: {
-            data: asset.data,
-            mimeType: asset.mimeType,
-          },
-        });
-      } catch (err) {
-        console.error(`Failed to fetch file asset from url: ${fileUrl}`, err);
-      }
+  if (audioUrl && audioUrl.startsWith("http")) {
+    try {
+      console.log(`Fetching remote audio asset: ${audioUrl}`);
+      const asset = await fetchAssetAsBase64(audioUrl);
+      contents.push({
+        inlineData: {
+          data: asset.data,
+          mimeType: asset.mimeType,
+        },
+      });
+    } catch (err) {
+      console.error(`Failed to fetch audio asset from url: ${audioUrl}`, err);
     }
+  }
 
-    console.log("Sending generateContent request to Gemini API...");
-    const generationConfig = {
-      ...(temperature !== undefined && { temperature }),
-      ...(maxTokens !== undefined && { maxOutputTokens: maxTokens }),
-    };
+  if (fileUrl && fileUrl.startsWith("http")) {
+    try {
+      console.log(`Fetching remote file asset: ${fileUrl}`);
+      const asset = await fetchAssetAsBase64(fileUrl);
+      contents.push({
+        inlineData: {
+          data: asset.data,
+          mimeType: asset.mimeType,
+        },
+      });
+    } catch (err) {
+      console.error(`Failed to fetch file asset from url: ${fileUrl}`, err);
+    }
+  }
 
-    const responseResult = await modelInstance.generateContent({
-      contents,
-      generationConfig,
-    });
+  console.log("Sending generateContent request to Gemini API...");
+  const generationConfig = {
+    ...(temperature !== undefined && { temperature }),
+    ...(maxTokens !== undefined && { maxOutputTokens: maxTokens }),
+  };
 
-    const responseText = responseResult.response.text();
-    console.log("Gemini API response text received:", responseText);
+  const responseResult = await modelInstance.generateContent({
+    contents,
+    generationConfig,
+  });
 
-    return responseText;
+  const responseText = responseResult.response.text();
+  console.log("Gemini API response text received:", responseText);
+
+  return responseText;
+};
+
+export const geminiTask = task({
+  id: "gemini-llm",
+  run: async (payload: GeminiPayload) => {
+    return runGemini(payload);
   },
 });
