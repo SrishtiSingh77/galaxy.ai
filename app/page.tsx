@@ -140,7 +140,7 @@ export default function LandingPage() {
             {/* Top Right Header Login shortcut */}
             <Link
               href="/sign-in"
-              className="flex h-8 w-8 items-center justify-center rounded-lg bg-zinc-800 text-white hover:bg-zinc-950 transition shadow-sm"
+              className="flex h-8 w-8 items-center justify-center rounded-lg bg-[#333333] text-white hover:bg-[#444444] transition shadow-sm"
               title="Sign In"
             >
               <LogIn className="h-4 w-4" />
@@ -172,7 +172,7 @@ export default function LandingPage() {
               <div className="flex items-center gap-3 mt-4">
                 <Link
                   href="/sign-in"
-                  className="flex items-center gap-1.5 rounded-lg bg-zinc-800 px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-zinc-950 transition active:scale-98"
+                  className="flex items-center gap-1.5 rounded-lg bg-[#333333] px-4 py-2 text-xs font-bold text-white shadow-md hover:bg-[#444444] transition active:scale-98"
                 >
                   <LogIn className="h-3.5 w-3.5" />
                   Sign in to get started
