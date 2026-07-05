@@ -83,7 +83,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
     ...(systemPrompt && { systemInstruction: systemPrompt }),
   });
 
-  const contents: any[] = [prompt];
+  const parts: any[] = [{ text: prompt }];
 
   // Process optional assets if they exist
   // Process remote images or base64 images
@@ -93,7 +93,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
         if (imgUrl.startsWith("data:image")) {
           const matches = imgUrl.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
           if (matches && matches.length === 3) {
-            contents.push({
+            parts.push({
               inlineData: {
                 data: matches[2],
                 mimeType: matches[1],
@@ -103,7 +103,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
         } else if (imgUrl.startsWith("http")) {
           console.log(`Fetching remote image asset: ${imgUrl}`);
           const asset = await fetchAssetAsBase64(imgUrl);
-          contents.push({
+          parts.push({
             inlineData: {
               data: asset.data,
               mimeType: asset.mimeType,
@@ -120,7 +120,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
     try {
       console.log(`Fetching remote video asset: ${videoUrl}`);
       const asset = await fetchAssetAsBase64(videoUrl);
-      contents.push({
+      parts.push({
         inlineData: {
           data: asset.data,
           mimeType: asset.mimeType,
@@ -135,7 +135,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
     try {
       console.log(`Fetching remote audio asset: ${audioUrl}`);
       const asset = await fetchAssetAsBase64(audioUrl);
-      contents.push({
+      parts.push({
         inlineData: {
           data: asset.data,
           mimeType: asset.mimeType,
@@ -150,7 +150,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
     try {
       console.log(`Fetching remote file asset: ${fileUrl}`);
       const asset = await fetchAssetAsBase64(fileUrl);
-      contents.push({
+      parts.push({
         inlineData: {
           data: asset.data,
           mimeType: asset.mimeType,
@@ -168,7 +168,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
   };
 
   const responseResult = await modelInstance.generateContent({
-    contents,
+    contents: [{ role: "user", parts }],
     generationConfig,
   });
 
