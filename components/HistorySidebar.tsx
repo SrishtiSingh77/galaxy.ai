@@ -167,27 +167,93 @@ export default function HistorySidebar() {
                           </div>
 
                           {/* Node Inputs / Outputs display */}
-                          <div className="mt-2 flex flex-col gap-1 border-t border-zinc-50 pt-2 text-[10px] text-zinc-500 font-semibold">
-                            {node.inputs && Object.keys(node.inputs).length > 0 && (
-                              <div>
-                                <span className="font-bold text-zinc-400">Inputs:</span>
-                                <pre className="bg-zinc-50 border border-zinc-100 rounded p-1 text-[9px] font-mono whitespace-pre-wrap max-h-16 overflow-y-auto mt-0.5">
-                                  {JSON.stringify(node.inputs, null, 2)}
-                                </pre>
+                          <div className="mt-2 flex flex-col gap-1.5 border-t border-zinc-150 pt-2 text-[10px] text-zinc-600 font-medium">
+                            {node.nodeName.toLowerCase().includes("crop") ? (
+                              <div className="flex flex-col gap-1">
+                                {node.inputs && (
+                                  <>
+                                    <div>
+                                      <span className="font-bold text-zinc-400">Crop Parameters:</span>{" "}
+                                      <span className="text-zinc-800">
+                                        X: {node.inputs.x}%, Y: {node.inputs.y}%, W: {node.inputs.width}%, H: {node.inputs.height}%
+                                      </span>
+                                    </div>
+                                    {node.inputs.inputImage && (
+                                      <div className="flex items-center gap-2 mt-0.5">
+                                        <span className="font-bold text-zinc-400">Input Image:</span>
+                                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                                        <img
+                                          src={node.inputs.inputImage}
+                                          alt="Input"
+                                          className="w-10 h-10 object-cover rounded border border-zinc-200"
+                                        />
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {node.outputs?.outputImage && (
+                                  <div className="flex items-center gap-2 mt-0.5">
+                                    <span className="font-bold text-zinc-400">Output Image:</span>
+                                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                                    <img
+                                      src={node.outputs.outputImage}
+                                      alt="Output"
+                                      className="w-10 h-10 object-cover rounded border border-zinc-200"
+                                    />
+                                  </div>
+                                )}
                               </div>
-                            )}
-
-                            {node.outputs && Object.keys(node.outputs).length > 0 && (
-                              <div className="mt-1.5">
-                                <span className="font-bold text-zinc-400">Outputs:</span>
-                                <pre className="bg-zinc-50 border border-zinc-100 rounded p-1 text-[9px] font-mono whitespace-pre-wrap max-h-16 overflow-y-auto mt-0.5">
-                                  {JSON.stringify(node.outputs, null, 2)}
-                                </pre>
+                            ) : node.nodeName.toLowerCase().includes("gemini") ? (
+                              <div className="flex flex-col gap-1">
+                                {node.inputs && (
+                                  <>
+                                    {node.inputs.prompt && (
+                                      <div>
+                                        <span className="font-bold text-zinc-400">Prompt:</span>{" "}
+                                        <span className="text-zinc-700 italic">"{node.inputs.prompt}"</span>
+                                      </div>
+                                    )}
+                                    {node.inputs.systemPrompt && (
+                                      <div>
+                                        <span className="font-bold text-zinc-400">System Prompt:</span>{" "}
+                                        <span className="text-zinc-700 italic">"{node.inputs.systemPrompt}"</span>
+                                      </div>
+                                    )}
+                                  </>
+                                )}
+                                {node.outputs?.response && (
+                                  <div className="mt-1">
+                                    <span className="font-bold text-zinc-400">Response:</span>{" "}
+                                    <div className="bg-zinc-50 border border-zinc-150 rounded p-1.5 text-[9px] font-mono whitespace-pre-wrap max-h-24 overflow-y-auto mt-0.5 text-zinc-800">
+                                      {node.outputs.response}
+                                    </div>
+                                  </div>
+                                )}
+                              </div>
+                            ) : (
+                              // Fallback for general nodes
+                              <div className="flex flex-col gap-1">
+                                {node.inputs && Object.keys(node.inputs).length > 0 && (
+                                  <div>
+                                    <span className="font-bold text-zinc-400">Inputs:</span>
+                                    <pre className="bg-zinc-50 border border-zinc-100 rounded p-1 text-[9px] font-mono whitespace-pre-wrap max-h-16 overflow-y-auto mt-0.5">
+                                      {JSON.stringify(node.inputs, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
+                                {node.outputs && Object.keys(node.outputs).length > 0 && (
+                                  <div>
+                                    <span className="font-bold text-zinc-400">Outputs:</span>
+                                    <pre className="bg-zinc-50 border border-zinc-100 rounded p-1 text-[9px] font-mono whitespace-pre-wrap max-h-16 overflow-y-auto mt-0.5">
+                                      {JSON.stringify(node.outputs, null, 2)}
+                                    </pre>
+                                  </div>
+                                )}
                               </div>
                             )}
 
                             {node.error && (
-                              <div className="mt-1.5 flex items-start gap-1 text-rose-600">
+                              <div className="mt-1 flex items-start gap-1 text-rose-600">
                                 <AlertCircle className="h-3 w-3 shrink-0 mt-0.5" />
                                 <span>Error: {node.error}</span>
                               </div>

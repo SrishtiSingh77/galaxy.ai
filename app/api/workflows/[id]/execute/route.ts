@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
-import { cropImageTask } from "@/trigger/cropImage";
+import { runCropImage } from "@/trigger/cropImage";
 import { geminiTask } from "@/trigger/geminiTask";
 import { z } from "zod";
 
@@ -177,7 +177,7 @@ async function runOrchestrator(
           let croppedUrl = "";
           try {
             console.log(`Scheduling Crop task for node ${nodeId}...`);
-            croppedUrl = await cropImageTask.run({
+            croppedUrl = await runCropImage({
               imageUrl: inputImage,
               x,
               y,
@@ -336,7 +336,12 @@ async function runOrchestrator(
 
         nodeDetails.push({
           nodeId,
-          nodeName: node.type === "requestInputs" ? "Request Inputs" : (node.type === "response" ? "Response" : node.id),
+          nodeName: 
+            node.type === "requestInputs" ? "Request Inputs" : 
+            node.type === "response" ? "Response" : 
+            node.type === "cropImage" ? "Crop Image" : 
+            node.type === "gemini" ? "Gemini 3.1 Pro" : 
+            node.id,
           status: nodeStatus,
           duration,
           inputs: nodeInputs,
