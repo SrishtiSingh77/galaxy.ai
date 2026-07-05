@@ -161,16 +161,34 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
     }
   }
 
-  console.log("Sending generateContent request to Gemini API...");
   const generationConfig = {
     ...(temperature !== undefined && { temperature }),
     ...(maxTokens !== undefined && { maxOutputTokens: maxTokens }),
   };
 
-  const responseResult = await modelInstance.generateContent({
-    contents: [{ role: "user", parts }],
-    generationConfig,
-  });
+  console.log(`Sending generateContent request to Gemini API with model: ${apiModel}...`);
+  let responseResult;
+  try {
+    responseResult = await modelInstance.generateContent({
+      contents: [{ role: "user", parts }],
+      generationConfig,
+    });
+  } catch (err: any) {
+    const errMsg = err.message || String(err);
+    if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("404")) {
+      console.warn(`Gemini model ${apiModel} failed with quota/version error. Retrying with fallback gemini-2.5-flash...`);
+      const fallbackModel = genAI.getGenerativeModel({
+        model: "gemini-2.5-flash",
+        ...(systemPrompt && { systemInstruction: systemPrompt }),
+      });
+      responseResult = await fallbackModel.generateContent({
+        contents: [{ role: "user", parts }],
+        generationConfig,
+      });
+    } else {
+      throw err;
+    }
+  }
 
   const responseText = responseResult.response.text();
   console.log("Gemini API response text received:", responseText);
