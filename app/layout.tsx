@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Plus_Jakarta_Sans } from "next/font/google";
+import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import CandidateLog from "@/components/CandidateLog";
 import "./globals.css";
 
-const jakarta = Plus_Jakarta_Sans({
+const inter = Inter({
   subsets: ["latin"],
   weight: ["300", "400", "500", "600", "700", "800"],
 });
@@ -22,7 +22,7 @@ export default function RootLayout({
   return (
     <ClerkProvider>
       <html lang="en">
-        <body className={`${jakarta.className} bg-[#fafafa] text-[#333333] antialiased`}>
+        <body className={`${inter.className} bg-[#fafafa] text-[#333333] antialiased`}>
           <CandidateLog />
           {children}
         </body>

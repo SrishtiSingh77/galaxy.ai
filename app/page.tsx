@@ -74,7 +74,7 @@ export default function LandingPage() {
   ];
 
   return (
-    <div className="relative flex h-screen w-screen bg-[#fafafa] overflow-hidden select-none font-sans">
+    <div className="relative flex h-screen w-screen bg-[#fafafa] overflow-hidden select-none">
       {/* Left Sidebar */}
       <div className="flex w-[68px] flex-col items-center justify-between border-r border-[#e4e4e7] bg-white py-6 z-10 shrink-0">
         <div className="flex flex-col items-center gap-6 w-full">
@@ -152,14 +152,14 @@ export default function LandingPage() {
             {/* Dot Grid Pattern Overlay */}
             <div className="absolute inset-0 bg-[radial-gradient(#e4e4e7_1px,transparent_1px)] [background-size:16px_16px] opacity-40 pointer-events-none" />
 
-            <div className="relative z-10 flex flex-col gap-2.5 max-w-2xl">
+            <div className="relative z-10 flex flex-col gap-2.5 max-w-3xl">
               {/* Badge */}
               <div className="inline-flex items-center gap-1.5 self-start rounded-full border border-indigo-150 bg-indigo-50 px-2.5 py-0.5 text-[10px] font-extrabold text-indigo-600 shadow-sm">
                 <span className="text-indigo-400">✨</span> All-in-One AI Platform
               </div>
 
               {/* Title */}
-              <h2 className="text-3xl font-extrabold tracking-tight text-zinc-950 mt-2 leading-tight">
+              <h2 className="text-3xl md:text-[64px] font-bold tracking-[-0.03em] text-zinc-950 mt-2 leading-tight md:leading-[1.05]">
                 Build AI workflows,<br />run models instantly
               </h2>
 
@@ -240,7 +240,7 @@ export default function LandingPage() {
                     href="/sign-in"
                     className={`flex flex-col p-5 bg-white border rounded-2xl transition cursor-pointer shadow-sm hover:-translate-y-0.5 hover:shadow-md duration-200 ${
                       tmpl.highlighted
-                        ? "border-indigo-600 ring-2 ring-indigo-500/10"
+                        ? "border-zinc-150 hover:border-indigo-600 hover:ring-2 hover:ring-indigo-500/10"
                         : "border-zinc-150 hover:border-zinc-300"
                     }`}
                   >
