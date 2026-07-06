@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import CandidateLog from "@/components/CandidateLog";
-import SmoothScroll from "@/components/SmoothScroll";
 import "./globals.css";
 
 const inter = Inter({
@@ -25,9 +24,7 @@ export default function RootLayout({
       <html lang="en">
         <body className={`${inter.className} bg-[#fafafa] text-[#333333] antialiased`}>
           <CandidateLog />
-          <SmoothScroll>
-            {children}
-          </SmoothScroll>
+          {children}
         </body>
       </html>
     </ClerkProvider>
