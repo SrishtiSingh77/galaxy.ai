@@ -1,6 +1,7 @@
 import { task } from "@trigger.dev/sdk/v3";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import https from "https";
+import http from "http";
 
 interface GeminiPayload {
   modelName: string;
@@ -14,31 +15,41 @@ interface GeminiPayload {
   maxTokens?: number;
 }
 
-// Download utility converting URLs to base64 inlineData for Gemini multimodal API
-const fetchAssetAsBase64 = (url: string): Promise<{ data: string; mimeType: string }> => {
+// Download utility converting URLs to base64 inlineData for Gemini multimodal API.
+// Supports both http (local /uploads assets) and https, and follows redirects.
+const fetchAssetAsBase64 = (
+  url: string,
+  redirects = 0
+): Promise<{ data: string; mimeType: string }> => {
   return new Promise((resolve, reject) => {
-    https.get(url, (response) => {
-      const mimeType = response.headers["content-type"] || "image/png";
-      const chunks: Buffer[] = [];
-
-      response.on("data", (chunk) => {
-        chunks.push(chunk);
-      });
-
-      response.on("end", () => {
-        const buffer = Buffer.concat(chunks);
-        resolve({
-          data: buffer.toString("base64"),
-          mimeType,
+    if (redirects > 5) {
+      reject(new Error("Too many redirects fetching asset"));
+      return;
+    }
+    const client = url.startsWith("http:") ? http : https;
+    client
+      .get(url, (response) => {
+        const status = response.statusCode || 0;
+        if (status >= 300 && status < 400 && response.headers.location) {
+          response.resume();
+          const next = new URL(response.headers.location, url).toString();
+          resolve(fetchAssetAsBase64(next, redirects + 1));
+          return;
+        }
+        if (status !== 200) {
+          response.resume();
+          reject(new Error(`Asset fetch failed: HTTP ${status} for ${url}`));
+          return;
+        }
+        const mimeType = response.headers["content-type"] || "image/png";
+        const chunks: Buffer[] = [];
+        response.on("data", (chunk) => chunks.push(chunk));
+        response.on("end", () => {
+          resolve({ data: Buffer.concat(chunks).toString("base64"), mimeType });
         });
-      });
-
-      response.on("error", (err) => {
-        reject(err);
-      });
-    }).on("error", (err) => {
-      reject(err);
-    });
+        response.on("error", (err) => reject(err));
+      })
+      .on("error", (err) => reject(err));
   });
 };
 

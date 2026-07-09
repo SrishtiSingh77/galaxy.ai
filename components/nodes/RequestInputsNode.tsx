@@ -19,8 +19,6 @@ import {
   HelpCircle,
 } from "lucide-react";
 import { useWorkflowStore, RequestInputField } from "@/store/useWorkflowStore";
-import Uppy from "@uppy/core";
-import Transloadit from "@uppy/transloadit";
 
 export default function RequestInputsNode({ id, data }: { id: string; data: any }) {
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
@@ -99,70 +97,50 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
     updateFields([...fields, duplicated]);
   };
 
-  // Uppy + Transloadit upload — persists only the CDN URL, keeps base64 local for preview
-  const handleFileUpload = (fieldId: string, file: File, type: string) => {
+  const clearPreview = (fieldId: string) =>
+    setPreviews((p) => {
+      const { [fieldId]: _omit, ...rest } = p;
+      return rest;
+    });
+
+  // Persist the field value using the LATEST store state (avoids stale-closure loss
+  // if fields changed during the async upload). Only a CDN URL is ever stored.
+  const persistFieldValue = (fieldId: string, val: string) => {
+    const store = useWorkflowStore.getState();
+    const node = store.nodes.find((n) => n.id === id);
+    const latest = ((node?.data as any)?.fields || []).map((f: RequestInputField) =>
+      f.id === fieldId ? { ...f, value: val } : f
+    );
+    setFields(latest);
+    store.updateNodeData(id, { fields: latest });
+  };
+
+  // Upload via the server route (reliable, retried) → store only the returned CDN URL.
+  const handleFileUpload = async (fieldId: string, file: File, type: string) => {
     setUploadingFieldId(fieldId);
     setUploadProgress(0);
 
-    // 1. Local base64 preview only (NOT persisted to DB) so the thumbnail shows instantly
-    let base64Url = "";
+    // Local base64 preview only (NEVER persisted) so the thumbnail shows instantly
     const reader = new FileReader();
-    reader.onloadend = () => {
-      base64Url = reader.result as string;
-      setPreviews((p) => ({ ...p, [fieldId]: base64Url }));
-    };
+    reader.onloadend = () => setPreviews((p) => ({ ...p, [fieldId]: reader.result as string }));
     reader.readAsDataURL(file);
 
-    const setFieldValue = (val: string) =>
-      updateFields(fields.map((f) => (f.id === fieldId ? { ...f, value: val } : f)));
-
-    const allowedTypes = type === "image_field" ? ["image/*"] : (type === "audio_field" ? ["audio/*"] : (type === "video_field" ? ["video/*"] : []));
-
-    const uppyInstance = new Uppy({
-      restrictions: { maxNumberOfFiles: 1, allowedFileTypes: allowedTypes.length > 0 ? allowedTypes : undefined },
-      autoProceed: true,
-    }).use(Transloadit, {
-      params: {
-        auth: { key: process.env.NEXT_PUBLIC_TRANSLOADIT_AUTH_KEY || "srish011" },
-        template_id: process.env.NEXT_PUBLIC_TRANSLOADIT_TEMPLATE_ID || "b11d22eefc3b42ab9a9685710e74b9f9",
-      },
-      waitForResults: true,
-    });
-
-    uppyInstance.addFile({
-      name: file.name,
-      type: file.type,
-      data: file,
-    });
-
-    uppyInstance.on("upload-progress", (file, progress) => {
-      const percentage = Math.round((progress.bytesUploaded / progress.bytesTotal) * 100);
-      setUploadProgress(percentage);
-    });
-
-    uppyInstance.on("transloadit:complete", (assembly) => {
-      const fileUrl = assembly.results?.export?.[0]?.ssl_url || assembly.results?.[":original"]?.[0]?.ssl_url;
-      // Persist the CDN URL only; fall back to base64 solely if no URL came back
-      setFieldValue(fileUrl || base64Url);
-      setPreviews((p) => {
-        const { [fieldId]: _, ...rest } = p;
-        return rest;
-      });
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      const { url } = await res.json();
+      if (!url) throw new Error("No URL returned from upload");
+      persistFieldValue(fieldId, url); // CDN URL only
+    } catch (err) {
+      console.error("Upload error:", err);
+      alert("Image upload failed. Please try again.");
+    } finally {
+      clearPreview(fieldId);
       setUploadingFieldId(null);
       setUploadProgress(0);
-    });
-
-    uppyInstance.on("error", (error) => {
-      console.error("Transloadit Upload Error:", error);
-      // Upload failed — persist base64 so the workflow still has a usable value
-      setFieldValue(base64Url);
-      setPreviews((p) => {
-        const { [fieldId]: _, ...rest } = p;
-        return rest;
-      });
-      setUploadingFieldId(null);
-      setUploadProgress(0);
-    });
+    }
   };
 
   const dropdownItems = [
@@ -334,7 +312,7 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                           {uploadingFieldId === field.id ? (
                             <div className="flex flex-col items-center gap-1">
                               <div className="h-4 w-4 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
-                              <span className="text-[10px] text-zinc-500 mt-1 font-semibold">{uploadProgress}%</span>
+                              <span className="text-[10px] text-zinc-500 mt-1 font-semibold">Uploading...</span>
                             </div>
                           ) : (
                             <>

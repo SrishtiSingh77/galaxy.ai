@@ -101,19 +101,30 @@ async function runOrchestrator(
     let nodesToExecuteIds = nodes.map((n) => n.id);
 
     if (selectedNodeIds && selectedNodeIds.length > 0) {
-      // Selective execution: find target nodes and all their ancestors
-      const ancestors = new Set<string>();
-      
-      const getAncestors = (nodeId: string) => {
-        if (ancestors.has(nodeId)) return;
-        ancestors.add(nodeId);
-        // Find edges pointing to this node
-        const incomingEdges = edges.filter((e) => e.target === nodeId);
-        incomingEdges.forEach((e) => getAncestors(e.source));
+      // Selective execution: run the whole chain THROUGH the selected nodes —
+      // their ancestors (to produce inputs) AND descendants (to consume outputs).
+      // Otherwise selecting an input node would run only that node.
+      const traverse = (startIds: string[], direction: "up" | "down") => {
+        const seen = new Set<string>();
+        const stack = [...startIds];
+        while (stack.length) {
+          const n = stack.pop()!;
+          if (seen.has(n)) continue;
+          seen.add(n);
+          const next =
+            direction === "up"
+              ? edges.filter((e) => e.target === n).map((e) => e.source)
+              : edges.filter((e) => e.source === n).map((e) => e.target);
+          next.forEach((x) => stack.push(x));
+        }
+        return seen;
       };
 
-      selectedNodeIds.forEach((id) => getAncestors(id));
-      nodesToExecuteIds = Array.from(ancestors);
+      const ancestors = traverse(selectedNodeIds, "up");
+      const descendants = traverse(selectedNodeIds, "down");
+      nodesToExecuteIds = Array.from(ancestors).concat(
+        Array.from(descendants).filter((id) => !ancestors.has(id))
+      );
     }
 
     console.log(`Starting execution for run ${runId}. Nodes to execute:`, nodesToExecuteIds);

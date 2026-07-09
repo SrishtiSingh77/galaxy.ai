@@ -3,6 +3,8 @@ import { exec } from "child_process";
 import fs from "fs";
 import path from "path";
 import https from "https";
+import http from "http";
+import { saveBuffer } from "@/lib/storage";
 // Loaded dynamically via eval("require") at runtime to prevent Webpack bundling errors
 
 interface CropPayload {
@@ -13,127 +15,78 @@ interface CropPayload {
   height: number;
 }
 
-// Download helper
-const downloadFile = (url: string, dest: string): Promise<void> => {
+// Download helper — validates status, follows redirects, verifies non-empty output.
+// A fresh Transloadit CDN URL can briefly 302/404 until it propagates; without
+// these checks the redirect/error body was written to disk and FFmpeg choked on it.
+const downloadFile = (url: string, dest: string, redirects = 0): Promise<void> => {
   return new Promise((resolve, reject) => {
-    const file = fs.createWriteStream(dest);
-    https.get(url, (response) => {
-      response.pipe(file);
-      file.on("finish", () => {
-        file.close();
-        resolve();
-      });
-    }).on("error", (err) => {
-      fs.unlink(dest, () => {});
-      reject(err);
-    });
-  });
-};
+    if (redirects > 5) {
+      reject(new Error("Too many redirects while downloading image"));
+      return;
+    }
+    const client = url.startsWith("http:") ? http : https;
+    client
+      .get(url, (response) => {
+        const status = response.statusCode || 0;
 
-// Poll a Transloadit assembly until it completes, then resolve its result URL
-const pollAssembly = (
-  assemblyUrl: string,
-  resolve: (url: string) => void,
-  reject: (err: Error) => void,
-  attempts = 0
-): void => {
-  if (attempts > 15) {
-    reject(new Error("Transloadit assembly timed out"));
-    return;
-  }
-  https
-    .get(assemblyUrl, (res) => {
-      let raw = "";
-      res.on("data", (c) => (raw += c));
-      res.on("end", () => {
-        try {
-          const json = JSON.parse(raw);
-          if (json.ok === "ASSEMBLY_COMPLETED") {
-            const results = json.results || {};
-            // Prefer an explicit export step, then any encode step, then the original
-            const firstStep = Object.keys(results).find((k) => k !== ":original");
-            const url =
-              results.export?.[0]?.ssl_url ||
-              (firstStep && results[firstStep]?.[0]?.ssl_url) ||
-              results[":original"]?.[0]?.ssl_url;
-            if (url) {
-              resolve(url);
-            } else {
-              reject(new Error("Transloadit assembly returned no result URL"));
-            }
-          } else if (json.error) {
-            reject(new Error(`Transloadit error: ${json.error}`));
-          } else {
-            // Still uploading / executing — keep polling
-            setTimeout(() => pollAssembly(assemblyUrl, resolve, reject, attempts + 1), 1500);
-          }
-        } catch (e) {
-          reject(e as Error);
+        // Follow redirects
+        if (status >= 300 && status < 400 && response.headers.location) {
+          response.resume(); // drain
+          const nextUrl = new URL(response.headers.location, url).toString();
+          resolve(downloadFile(nextUrl, dest, redirects + 1));
+          return;
         }
+
+        // Reject anything that isn't a success — triggers retry/fallback instead
+        // of writing an error page to disk
+        if (status !== 200) {
+          response.resume();
+          reject(new Error(`Download failed: HTTP ${status} for ${url}`));
+          return;
+        }
+
+        const file = fs.createWriteStream(dest);
+        response.pipe(file);
+        file.on("finish", () => {
+          file.close(() => {
+            try {
+              if (fs.statSync(dest).size < 10) {
+                reject(new Error("Downloaded image is empty"));
+                return;
+              }
+              resolve();
+            } catch (e) {
+              reject(e as Error);
+            }
+          });
+        });
+        file.on("error", (err) => {
+          fs.unlink(dest, () => {});
+          reject(err);
+        });
+      })
+      .on("error", (err) => {
+        fs.unlink(dest, () => {});
+        reject(err);
       });
-    })
-    .on("error", reject);
+  });
 };
 
-// Upload a local file to Transloadit and return its CDN (ssl_url).
-// Uses the same public auth key + template the client uploader uses.
-const uploadToTransloadit = (filePath: string): Promise<string> => {
-  return new Promise((resolve, reject) => {
-    const authKey = process.env.NEXT_PUBLIC_TRANSLOADIT_AUTH_KEY || "srish011";
-    const templateId =
-      process.env.NEXT_PUBLIC_TRANSLOADIT_TEMPLATE_ID || "b11d22eefc3b42ab9a9685710e74b9f9";
-    const params = JSON.stringify({ auth: { key: authKey }, template_id: templateId });
-
-    const fileBuffer = fs.readFileSync(filePath);
-    const fileName = path.basename(filePath);
-    const boundary = `----galaxyaiCrop${Date.now()}`;
-
-    const preamble = Buffer.from(
-      `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="params"\r\n\r\n${params}\r\n` +
-        `--${boundary}\r\n` +
-        `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
-        `Content-Type: image/png\r\n\r\n`
-    );
-    const epilogue = Buffer.from(`\r\n--${boundary}--\r\n`);
-    const body = Buffer.concat([preamble, fileBuffer, epilogue]);
-
-    const req = https.request(
-      {
-        method: "POST",
-        hostname: "api2.transloadit.com",
-        path: "/assemblies",
-        headers: {
-          "Content-Type": `multipart/form-data; boundary=${boundary}`,
-          "Content-Length": body.length,
-        },
-      },
-      (res) => {
-        let raw = "";
-        res.on("data", (c) => (raw += c));
-        res.on("end", () => {
-          try {
-            const json = JSON.parse(raw);
-            if (json.error) {
-              reject(new Error(`Transloadit error: ${json.error} ${json.message || ""}`));
-              return;
-            }
-            const assemblyUrl = json.assembly_ssl_url || json.assembly_url;
-            if (!assemblyUrl) {
-              reject(new Error("Transloadit did not return an assembly URL"));
-              return;
-            }
-            pollAssembly(assemblyUrl, resolve, reject);
-          } catch (e) {
-            reject(e as Error);
-          }
-        });
-      }
-    );
-    req.on("error", reject);
-    req.write(body);
-    req.end();
-  });
+// Retry the download a few times with backoff — a just-uploaded CDN asset can
+// take a moment to become fetchable (the cause of "crops only after 3-4 tries").
+const downloadWithRetry = async (url: string, dest: string, attempts = 4): Promise<void> => {
+  let lastErr: unknown;
+  for (let i = 0; i < attempts; i++) {
+    try {
+      await downloadFile(url, dest);
+      return;
+    } catch (e) {
+      lastErr = e;
+      console.warn(`Image download attempt ${i + 1}/${attempts} failed:`, (e as Error).message);
+      await new Promise((r) => setTimeout(r, 700 * (i + 1)));
+    }
+  }
+  throw lastErr;
 };
 
 export const runCropImage = async (payload: CropPayload): Promise<string> => {
@@ -156,8 +109,10 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
     fs.mkdirSync(tempDir, { recursive: true });
   }
 
-  const inputPath = path.join(tempDir, `input_${Date.now()}.png`);
-  const outputPath = path.join(tempDir, `output_${Date.now()}.png`);
+  // Unique per-invocation names so concurrent crop nodes don't clobber each other's temp files
+  const uid = `${Date.now()}_${Math.floor(Math.random() * 1e9)}`;
+  const inputPath = path.join(tempDir, `input_${uid}.png`);
+  const outputPath = path.join(tempDir, `output_${uid}.png`);
 
   try {
     if (imageUrl.startsWith("data:image")) {
@@ -172,7 +127,7 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
       }
     } else {
       console.log("Remote URL image received. Downloading image to temp path:", inputPath);
-      await downloadFile(imageUrl, inputPath);
+      await downloadWithRetry(imageUrl, inputPath);
     }
 
     // Execute prebuilt FFmpeg crop command with trunc() to prevent float dimension errors
@@ -191,17 +146,9 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
       });
     });
 
-    // Upload the cropped result to the Transloadit CDN and return its URL.
-    // Fall back to an inline base64 data URL if the upload fails.
-    let resultUrl: string;
-    try {
-      resultUrl = await uploadToTransloadit(outputPath);
-      console.log("Cropped image uploaded to Transloadit CDN:", resultUrl);
-    } catch (uploadErr) {
-      console.error("Transloadit upload failed, falling back to base64 data URL.", uploadErr);
-      const outputBuffer = fs.readFileSync(outputPath);
-      resultUrl = `data:image/png;base64,${outputBuffer.toString("base64")}`;
-    }
+    // Save the cropped result (Cloudinary in prod, disk in dev) and return its URL
+    const resultUrl = await saveBuffer(fs.readFileSync(outputPath), "png");
+    console.log("Cropped image saved:", resultUrl);
 
     // Clean up
     fs.unlinkSync(inputPath);

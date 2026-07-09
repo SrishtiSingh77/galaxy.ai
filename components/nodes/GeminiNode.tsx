@@ -4,8 +4,6 @@ import React, { useState, useEffect } from "react";
 import { Handle, Position } from "reactflow";
 import { Bot, Sliders, ChevronDown, ChevronUp, FileCode, Upload, Trash2 } from "lucide-react";
 import { useWorkflowStore } from "@/store/useWorkflowStore";
-import Uppy from "@uppy/core";
-import Transloadit from "@uppy/transloadit";
 
 export default function GeminiNode({ id, data }: { id: string; data: any }) {
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
@@ -53,47 +51,23 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
     updateNodeData(id, updates);
   };
 
-  const handleFileUpload = (type: string, file: File) => {
+  // Upload via the server route (reliable, retried) → store only the returned CDN URL
+  const handleFileUpload = async (type: string, file: File) => {
     setUploadingType(type);
-
-    // Keep base64 in memory only (not persisted) as a fallback if the CDN upload fails
-    let base64Url = "";
-    const reader = new FileReader();
-    reader.onloadend = () => {
-      base64Url = reader.result as string;
-    };
-    reader.readAsDataURL(file);
-
-    const uppyInstance = new Uppy({
-      restrictions: { maxNumberOfFiles: 1 },
-      autoProceed: true,
-    }).use(Transloadit, {
-      params: {
-        auth: { key: process.env.NEXT_PUBLIC_TRANSLOADIT_AUTH_KEY || "srish011" },
-        template_id: process.env.NEXT_PUBLIC_TRANSLOADIT_TEMPLATE_ID || "b11d22eefc3b42ab9a9685710e74b9f9",
-      },
-      waitForResults: true,
-    });
-
-    uppyInstance.addFile({
-      name: file.name,
-      type: file.type,
-      data: file,
-    });
-
-    uppyInstance.on("transloadit:complete", (assembly) => {
-      const fileUrl = assembly.results?.export?.[0]?.ssl_url || assembly.results?.[":original"]?.[0]?.ssl_url;
-      // Persist the CDN URL only; use base64 solely if no URL was returned
-      handleUpdate({ [`${type}Val`]: fileUrl || base64Url });
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/upload", { method: "POST", body: form });
+      if (!res.ok) throw new Error(`Upload failed (${res.status})`);
+      const { url } = await res.json();
+      if (!url) throw new Error("No URL returned from upload");
+      handleUpdate({ [`${type}Val`]: url }); // CDN URL only
+    } catch (err) {
+      console.error("Gemini Asset Upload Error:", err);
+      alert("Upload failed. Please try again.");
+    } finally {
       setUploadingType(null);
-    });
-
-    uppyInstance.on("error", (error) => {
-      console.error("Gemini Asset Upload Error:", error);
-      // Upload failed — persist base64 so the model still receives the asset
-      handleUpdate({ [`${type}Val`]: base64Url });
-      setUploadingType(null);
-    });
+    }
   };
 
   return (

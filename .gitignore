@@ -6,6 +6,9 @@
 # testing
 /coverage
 
+# user uploads (served locally at runtime)
+/public/uploads
+
 # next.js
 /.next/
 /out/
