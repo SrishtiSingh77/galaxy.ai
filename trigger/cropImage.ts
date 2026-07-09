@@ -37,7 +37,7 @@ const pollAssembly = (
   reject: (err: Error) => void,
   attempts = 0
 ): void => {
-  if (attempts > 40) {
+  if (attempts > 15) {
     reject(new Error("Transloadit assembly timed out"));
     return;
   }
@@ -144,10 +144,12 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
     throw new Error("No image URL provided for cropping");
   }
 
-  const safeX = Math.max(0, Math.min(100, x));
-  const safeY = Math.max(0, Math.min(100, y));
-  const safeWidth = Math.max(1, Math.min(100, width));
-  const safeHeight = Math.max(1, Math.min(100, height));
+  // Clamp so the crop rectangle stays inside the image (offset + size <= 100).
+  // Otherwise FFmpeg errors ("crop area out of bounds") and returns uncropped.
+  const safeX = Math.max(0, Math.min(99, x));
+  const safeY = Math.max(0, Math.min(99, y));
+  const safeWidth = Math.max(1, Math.min(100 - safeX, width));
+  const safeHeight = Math.max(1, Math.min(100 - safeY, height));
 
   const tempDir = path.join(process.cwd(), "tmp");
   if (!fs.existsSync(tempDir)) {

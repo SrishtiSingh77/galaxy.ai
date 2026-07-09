@@ -257,7 +257,7 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                       value={field.value}
                       onChange={(e) => handleTextChange(field.id, e.target.value)}
                       placeholder="Enter text..."
-                      className="min-h-[60px] w-full rounded-lg border border-zinc-200 p-2 pr-8 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none bg-zinc-50/50"
+                      className="nodrag nopan min-h-[60px] w-full rounded-lg border border-zinc-200 p-2 pr-8 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none bg-zinc-50/50"
                     />
                     <button
                       onClick={() => setExpandedFieldId(field.id)}
@@ -273,7 +273,7 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                     value={field.value}
                     onChange={(e) => handleTextChange(field.id, e.target.value)}
                     placeholder="Enter number..."
-                    className="w-full rounded-lg border border-zinc-200 p-2 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none bg-zinc-50/50"
+                    className="nodrag nopan w-full rounded-lg border border-zinc-200 p-2 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none bg-zinc-50/50"
                   />
                 ) : field.type === "boolean_field" ? (
                   <label className="flex items-center gap-2 cursor-pointer py-1">

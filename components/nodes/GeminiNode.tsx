@@ -150,7 +150,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               handleUpdate({ prompt: e.target.value });
             }}
             placeholder={isPromptConnected ? "Linked to upstream text source" : "Enter prompt..."}
-            className="min-h-[50px] w-full rounded-lg border border-zinc-200 p-2 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none disabled:bg-zinc-50 disabled:text-zinc-400"
+            className="nodrag nopan min-h-[50px] w-full rounded-lg border border-zinc-200 p-2 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none disabled:bg-zinc-50 disabled:text-zinc-400"
           />
         </div>
 
@@ -178,7 +178,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               handleUpdate({ systemPrompt: e.target.value });
             }}
             placeholder={isSystemPromptConnected ? "Linked to system prompt source" : "You are a helpful assistant..."}
-            className="min-h-[50px] w-full rounded-lg border border-zinc-200 p-2 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none disabled:bg-zinc-50 disabled:text-zinc-400"
+            className="nodrag nopan min-h-[50px] w-full rounded-lg border border-zinc-200 p-2 text-xs text-zinc-800 placeholder-zinc-400 focus:border-zinc-400 focus:outline-none resize-none disabled:bg-zinc-50 disabled:text-zinc-400"
           />
         </div>
 
@@ -390,7 +390,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
                     setTemperature(parseFloat(e.target.value));
                     handleUpdate({ temperature: parseFloat(e.target.value) });
                   }}
-                  className="h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  className="nodrag nopan h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
               </div>
 
@@ -409,7 +409,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
                     setMaxTokens(parseInt(e.target.value));
                     handleUpdate({ maxTokens: parseInt(e.target.value) });
                   }}
-                  className="h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
+                  className="nodrag nopan h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600"
                 />
               </div>
             </div>

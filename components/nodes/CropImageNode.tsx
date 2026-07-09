@@ -104,7 +104,7 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               value={x}
               disabled={isXConnected}
               onChange={(e) => handleSliderChange("x", parseInt(e.target.value))}
-              className="h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
+              className="nodrag nopan h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
             />
           </div>
 
@@ -134,7 +134,7 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               value={y}
               disabled={isYConnected}
               onChange={(e) => handleSliderChange("y", parseInt(e.target.value))}
-              className="h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
+              className="nodrag nopan h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
             />
           </div>
 
@@ -164,7 +164,7 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               value={width}
               disabled={isWidthConnected}
               onChange={(e) => handleSliderChange("width", parseInt(e.target.value))}
-              className="h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
+              className="nodrag nopan h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
             />
           </div>
 
@@ -194,7 +194,7 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               value={height}
               disabled={isHeightConnected}
               onChange={(e) => handleSliderChange("height", parseInt(e.target.value))}
-              className="h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
+              className="nodrag nopan h-1 w-full bg-zinc-200 rounded-lg appearance-none cursor-pointer accent-indigo-600 disabled:opacity-50"
             />
           </div>
         </div>
