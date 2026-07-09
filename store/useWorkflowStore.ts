@@ -81,6 +81,8 @@ interface WorkflowState {
 
   // Background auto-save to the DB (fire-and-forget) after any mutation
   updateDatabase: () => Promise<void>;
+  // Immediate save that flushes any pending debounced save (used before a run)
+  saveNow: () => Promise<void>;
 }
 
 // DFS cycle detection to guarantee DAG structure
@@ -495,5 +497,26 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         console.error("Failed to auto-save workflow to database:", err);
       }
     }, 800);
+  },
+
+  // Flush immediately — cancels the pending debounce and persists the current
+  // state right away. Called before a run so the orchestrator reads fresh data
+  // (e.g. a just-uploaded image URL) instead of stale DB state.
+  saveNow: async () => {
+    const { activeWorkflowId, nodes, edges } = get();
+    if (!activeWorkflowId) return;
+    if (saveTimeout) {
+      clearTimeout(saveTimeout);
+      saveTimeout = null;
+    }
+    try {
+      await fetch(`/api/workflows/${activeWorkflowId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nodes, edges }),
+      });
+    } catch (err) {
+      console.error("Failed to save workflow before run:", err);
+    }
   },
 }));

@@ -62,6 +62,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
       const { url } = await res.json();
       if (!url) throw new Error("No URL returned from upload");
       handleUpdate({ [`${type}Val`]: url }); // CDN URL only
+      useWorkflowStore.getState().saveNow(); // persist immediately
     } catch (err) {
       console.error("Gemini Asset Upload Error:", err);
       alert("Upload failed. Please try again.");

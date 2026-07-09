@@ -113,6 +113,7 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
     );
     setFields(latest);
     store.updateNodeData(id, { fields: latest });
+    store.saveNow(); // persist the uploaded URL immediately (don't wait for debounce)
   };
 
   // Upload via the server route (reliable, retried) → store only the returned CDN URL.

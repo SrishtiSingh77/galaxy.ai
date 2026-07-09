@@ -270,6 +270,10 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
     setWorkflowExecuting(true);
 
     try {
+      // Flush any pending debounced auto-save so the orchestrator reads the
+      // latest state (e.g. a just-uploaded image URL), not stale DB data.
+      await useWorkflowStore.getState().saveNow();
+
       const res = await fetch(`/api/workflows/${workflowId}/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
