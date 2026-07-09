@@ -4,6 +4,7 @@ export default defineConfig({
   project: "py-workflow-builder",
   runtime: "node",
   logLevel: "log",
+  maxDuration: 300,
   retries: {
     enabledInDev: true,
     default: {

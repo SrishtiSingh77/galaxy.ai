@@ -47,18 +47,35 @@ body {
   background: #a1a1aa;
 }
 
-/* Pulsating glow animation for executing nodes */
+/* Only the running node: purple border blinks/glows up and down.
+   Rendered as an overlay ring so it survives the selected-node box-shadow
+   (which uses !important and would otherwise win over a keyframe animation). */
 .executing-glow {
-  animation: pulsating-glow 1.5s infinite ease-in-out;
-  border-color: #4f46e5 !important;
+  position: relative;
+  z-index: 20; /* lift active node above neighbors so its glow isn't clipped */
+}
+
+.executing-glow::after {
+  content: "";
+  position: absolute;
+  inset: -2px;
+  border-radius: 14px; /* node is rounded-xl (12px) + 2px inset */
+  border: 2px solid #7c3aed;
+  pointer-events: none; /* keep sliders/handles clickable */
+  z-index: 30;
+  animation: pulsating-glow 1s infinite ease-in-out;
 }
 
 @keyframes pulsating-glow {
   0%, 100% {
-    box-shadow: 0 0 4px rgba(79, 70, 229, 0.4), inset 0 0 4px rgba(79, 70, 229, 0.2);
+    border-color: #a78bfa; /* soft purple — dim phase */
+    box-shadow: 0 0 6px 1px rgba(139, 92, 246, 0.45);
+    opacity: 0.75;
   }
   50% {
-    box-shadow: 0 0 16px rgba(79, 70, 229, 0.8), inset 0 0 8px rgba(79, 70, 229, 0.4);
+    border-color: #7c3aed; /* vivid purple — bright phase */
+    box-shadow: 0 0 26px 6px rgba(139, 92, 246, 0.95);
+    opacity: 1;
   }
 }
 

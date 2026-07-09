@@ -8,9 +8,9 @@ import { useWorkflowStore } from "@/store/useWorkflowStore";
 export default function CropImageNode({ id, data }: { id: string; data: any }) {
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   const edges = useWorkflowStore((state) => state.edges);
-  const executingNodeIds = useWorkflowStore((state) => state.executingNodeIds);
 
-  const isExecuting = executingNodeIds.includes(id);
+  // Glow reflects the live DB state synced into node data during a run
+  const isExecuting = !!data.isExecuting;
 
   // Connection check helpers
   const isInputImageConnected = edges.some((e) => e.target === id && e.targetHandle === "inputImage");
@@ -67,6 +67,14 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
             {isInputImageConnected ? "Connected" : "No Input"}
           </span>
         </div>
+
+        {/* Input image preview (populated from the connected upstream image at run time) */}
+        {data.inputImage && (
+          <div className="rounded-lg border border-zinc-200 overflow-hidden bg-zinc-50 max-h-28">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={data.inputImage} alt="Input Preview" className="w-full object-contain h-24" />
+          </div>
+        )}
 
         {/* Sliders */}
         <div className="flex flex-col gap-2">

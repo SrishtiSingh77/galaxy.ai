@@ -10,9 +10,22 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Lightweight list for the dashboard: skip the heavy nodes/edges JSON blobs
+    // (they can be MBs of base64 media) — cards only need metadata + last status.
     const workflows = await db.workflow.findMany({
       where: { userId },
       orderBy: { updatedAt: "desc" },
+      select: {
+        id: true,
+        name: true,
+        createdAt: true,
+        updatedAt: true,
+        executions: {
+          orderBy: { timestamp: "desc" },
+          take: 1,
+          select: { status: true, timestamp: true },
+        },
+      },
     });
 
     return NextResponse.json(workflows);
@@ -47,7 +60,7 @@ export async function POST(request: Request) {
               id: "field-1",
               name: "text_field",
               type: "text_field",
-              value: "Product: Wireless Bluetooth Headphones. Features: Noise cancellation, 30-hour battery, foldable design.",
+              value: "",
             },
             {
               id: "field-2",

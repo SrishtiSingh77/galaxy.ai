@@ -17,7 +17,7 @@ interface NodeDetail {
 interface ExecutionRecord {
   id: string;
   timestamp: string;
-  status: "SUCCESS" | "FAILED" | "PARTIAL";
+  status: "SUCCESS" | "FAILED" | "PARTIAL" | "RUNNING";
   duration: number;
   scope: "FULL" | "PARTIAL" | "SINGLE_NODE";
   details: NodeDetail[];
@@ -55,6 +55,13 @@ export default function HistorySidebar() {
     }
   }, [isOpen, activeWorkflowId, isExecuting]); // Refetch when history sidebar opens or execution completes
 
+  // While a run is executing, poll history so node-by-node progress shows in real time
+  useEffect(() => {
+    if (!isOpen || !activeWorkflowId || !isExecuting) return;
+    const interval = setInterval(fetchHistory, 1500);
+    return () => clearInterval(interval);
+  }, [isOpen, activeWorkflowId, isExecuting]);
+
   if (!isOpen) return null;
 
   const toggleExpand = (id: string) => {
@@ -67,6 +74,8 @@ export default function HistorySidebar() {
         return "bg-emerald-50 text-emerald-700 border-emerald-200";
       case "FAILED":
         return "bg-rose-50 text-rose-700 border-rose-200";
+      case "RUNNING":
+        return "bg-indigo-50 text-indigo-700 border-indigo-200";
       case "PARTIAL":
       default:
         return "bg-amber-50 text-amber-700 border-amber-200";
@@ -79,6 +88,8 @@ export default function HistorySidebar() {
         return "🟢";
       case "FAILED":
         return "🔴";
+      case "RUNNING":
+        return "🔵";
       case "PARTIAL":
       default:
         return "🟡";

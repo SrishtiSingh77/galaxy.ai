@@ -30,13 +30,114 @@ const downloadFile = (url: string, dest: string): Promise<void> => {
   });
 };
 
+// Poll a Transloadit assembly until it completes, then resolve its result URL
+const pollAssembly = (
+  assemblyUrl: string,
+  resolve: (url: string) => void,
+  reject: (err: Error) => void,
+  attempts = 0
+): void => {
+  if (attempts > 40) {
+    reject(new Error("Transloadit assembly timed out"));
+    return;
+  }
+  https
+    .get(assemblyUrl, (res) => {
+      let raw = "";
+      res.on("data", (c) => (raw += c));
+      res.on("end", () => {
+        try {
+          const json = JSON.parse(raw);
+          if (json.ok === "ASSEMBLY_COMPLETED") {
+            const results = json.results || {};
+            // Prefer an explicit export step, then any encode step, then the original
+            const firstStep = Object.keys(results).find((k) => k !== ":original");
+            const url =
+              results.export?.[0]?.ssl_url ||
+              (firstStep && results[firstStep]?.[0]?.ssl_url) ||
+              results[":original"]?.[0]?.ssl_url;
+            if (url) {
+              resolve(url);
+            } else {
+              reject(new Error("Transloadit assembly returned no result URL"));
+            }
+          } else if (json.error) {
+            reject(new Error(`Transloadit error: ${json.error}`));
+          } else {
+            // Still uploading / executing — keep polling
+            setTimeout(() => pollAssembly(assemblyUrl, resolve, reject, attempts + 1), 1500);
+          }
+        } catch (e) {
+          reject(e as Error);
+        }
+      });
+    })
+    .on("error", reject);
+};
+
+// Upload a local file to Transloadit and return its CDN (ssl_url).
+// Uses the same public auth key + template the client uploader uses.
+const uploadToTransloadit = (filePath: string): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const authKey = process.env.NEXT_PUBLIC_TRANSLOADIT_AUTH_KEY || "srish011";
+    const templateId =
+      process.env.NEXT_PUBLIC_TRANSLOADIT_TEMPLATE_ID || "b11d22eefc3b42ab9a9685710e74b9f9";
+    const params = JSON.stringify({ auth: { key: authKey }, template_id: templateId });
+
+    const fileBuffer = fs.readFileSync(filePath);
+    const fileName = path.basename(filePath);
+    const boundary = `----galaxyaiCrop${Date.now()}`;
+
+    const preamble = Buffer.from(
+      `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="params"\r\n\r\n${params}\r\n` +
+        `--${boundary}\r\n` +
+        `Content-Disposition: form-data; name="file"; filename="${fileName}"\r\n` +
+        `Content-Type: image/png\r\n\r\n`
+    );
+    const epilogue = Buffer.from(`\r\n--${boundary}--\r\n`);
+    const body = Buffer.concat([preamble, fileBuffer, epilogue]);
+
+    const req = https.request(
+      {
+        method: "POST",
+        hostname: "api2.transloadit.com",
+        path: "/assemblies",
+        headers: {
+          "Content-Type": `multipart/form-data; boundary=${boundary}`,
+          "Content-Length": body.length,
+        },
+      },
+      (res) => {
+        let raw = "";
+        res.on("data", (c) => (raw += c));
+        res.on("end", () => {
+          try {
+            const json = JSON.parse(raw);
+            if (json.error) {
+              reject(new Error(`Transloadit error: ${json.error} ${json.message || ""}`));
+              return;
+            }
+            const assemblyUrl = json.assembly_ssl_url || json.assembly_url;
+            if (!assemblyUrl) {
+              reject(new Error("Transloadit did not return an assembly URL"));
+              return;
+            }
+            pollAssembly(assemblyUrl, resolve, reject);
+          } catch (e) {
+            reject(e as Error);
+          }
+        });
+      }
+    );
+    req.on("error", reject);
+    req.write(body);
+    req.end();
+  });
+};
+
 export const runCropImage = async (payload: CropPayload): Promise<string> => {
   console.log("Starting Crop Image Task with payload:", payload);
-
-  // 1. Mandatory 30-second artificial delay
-  console.log("Waiting 30 seconds artificial delay...");
-  await new Promise((resolve) => setTimeout(resolve, 30000));
-  console.log("Artificial delay complete.");
 
   const { imageUrl, x, y, width, height } = payload;
   if (!imageUrl) {
@@ -88,15 +189,23 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
       });
     });
 
-    // If successful, read output image and convert to base64 data URL
-    const outputBuffer = fs.readFileSync(outputPath);
-    const dataUrl = `data:image/png;base64,${outputBuffer.toString("base64")}`;
+    // Upload the cropped result to the Transloadit CDN and return its URL.
+    // Fall back to an inline base64 data URL if the upload fails.
+    let resultUrl: string;
+    try {
+      resultUrl = await uploadToTransloadit(outputPath);
+      console.log("Cropped image uploaded to Transloadit CDN:", resultUrl);
+    } catch (uploadErr) {
+      console.error("Transloadit upload failed, falling back to base64 data URL.", uploadErr);
+      const outputBuffer = fs.readFileSync(outputPath);
+      resultUrl = `data:image/png;base64,${outputBuffer.toString("base64")}`;
+    }
 
     // Clean up
     fs.unlinkSync(inputPath);
     fs.unlinkSync(outputPath);
 
-    return dataUrl;
+    return resultUrl;
   } catch (err) {
     console.error("FFmpeg cropping failed. Returning source image as fallback.", err);
     // Clean up if files exist

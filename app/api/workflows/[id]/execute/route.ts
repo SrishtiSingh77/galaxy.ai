@@ -102,12 +102,13 @@ async function runOrchestrator(
 
     console.log(`Starting execution for run ${runId}. Nodes to execute:`, nodesToExecuteIds);
 
-    // 3. Set executing status on nodes
+    // 3. Reset node state: clear stale outputs, glow OFF for everyone.
+    //    Each node turns its own glow ON only once it actually starts running.
     let currentNodes = nodes.map((n) => ({
       ...n,
       data: {
         ...n.data,
-        isExecuting: nodesToExecuteIds.includes(n.id) && n.id !== "request-inputs" && n.id !== "response",
+        isExecuting: false,
         ...(nodesToExecuteIds.includes(n.id) && { response: "", results: [] }), // Clear old outputs for nodes running
       },
     }));
@@ -116,6 +117,33 @@ async function runOrchestrator(
       where: { id: workflowId },
       data: { nodes: currentNodes },
     });
+
+    // Atomically patch a single node's data and persist. Reads the live
+    // `currentNodes` synchronously before awaiting, so concurrent node writes
+    // don't clobber each other's outputs.
+    const patchNode = async (nodeId: string, patch: Record<string, any>) => {
+      currentNodes = currentNodes.map((n) =>
+        n.id === nodeId ? { ...n, data: { ...n.data, ...patch } } : n
+      );
+      await db.workflow
+        .update({ where: { id: workflowId }, data: { nodes: currentNodes } })
+        .catch((e) => console.error(`Failed to patch node ${nodeId}:`, e));
+    };
+
+    // Persist execution history incrementally so the History sidebar can show
+    // node-by-node progress in real time (status stays RUNNING until the end).
+    const persistHistory = async (final = false) => {
+      await db.executionHistory
+        .update({
+          where: { id: runId },
+          data: {
+            status: final ? runStatus : "RUNNING",
+            duration: (Date.now() - startTime) / 1000,
+            details: nodeDetails,
+          },
+        })
+        .catch((e) => console.error("Failed to persist execution history:", e));
+    };
 
     // 4. Async execution tracking
     const resolvedOutputs: Record<string, Record<string, any>> = {};
@@ -156,6 +184,11 @@ async function runOrchestrator(
           }
         });
 
+        // Dependencies resolved — turn THIS node's glow on now (real-time active state)
+        if (node.type !== "requestInputs" && node.type !== "response") {
+          await patchNode(nodeId, { isExecuting: true });
+        }
+
         // B. Run execution depending on node type
         if (node.type === "requestInputs") {
           // Local node - extract fields
@@ -172,6 +205,11 @@ async function runOrchestrator(
           const height = nodeInputs.height !== undefined ? nodeInputs.height : (node.data.height ?? 100);
 
           nodeInputs = { inputImage, x, y, width, height };
+
+          // Persist the resolved input image so the node shows its preview
+          if (inputImage) {
+            await patchNode(nodeId, { inputImage });
+          }
 
           // Execute task via Trigger.dev or fallback invocation
           let croppedUrl = "";
@@ -191,23 +229,8 @@ async function runOrchestrator(
 
           nodeOutputs = { outputImage: croppedUrl };
 
-          // Update DB node output in real-time
-          currentNodes = currentNodes.map((n) =>
-            n.id === nodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    outputImage: croppedUrl,
-                    isExecuting: false,
-                  },
-                }
-              : n
-          );
-          await db.workflow.update({
-            where: { id: workflowId },
-            data: { nodes: currentNodes },
-          });
+          // Update DB node output in real-time, glow OFF
+          await patchNode(nodeId, { outputImage: croppedUrl, isExecuting: false });
         } else if (node.type === "gemini") {
           // Gemini Node
           const prompt = nodeInputs.prompt || node.data.prompt || "";
@@ -249,23 +272,8 @@ async function runOrchestrator(
 
           nodeOutputs = { response: responseText };
 
-          // Update DB node output in real-time
-          currentNodes = currentNodes.map((n) =>
-            n.id === nodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    response: responseText,
-                    isExecuting: false,
-                  },
-                }
-              : n
-          );
-          await db.workflow.update({
-            where: { id: workflowId },
-            data: { nodes: currentNodes },
-          });
+          // Update DB node output in real-time, glow OFF
+          await patchNode(nodeId, { response: responseText, isExecuting: false });
         } else if (node.type === "response") {
           // Final collector node
           // Gather all values connected to result input
@@ -297,22 +305,7 @@ async function runOrchestrator(
           nodeOutputs = { results: incomingResults };
 
           // Update Response Node data
-          currentNodes = currentNodes.map((n) =>
-            n.id === nodeId
-              ? {
-                  ...n,
-                  data: {
-                    ...n.data,
-                    results: incomingResults,
-                    isExecuting: false,
-                  },
-                }
-              : n
-          );
-          await db.workflow.update({
-            where: { id: workflowId },
-            data: { nodes: currentNodes },
-          });
+          await patchNode(nodeId, { results: incomingResults, isExecuting: false });
         }
 
         resolvedOutputs[nodeId] = nodeOutputs;
@@ -323,24 +316,18 @@ async function runOrchestrator(
         runStatus = "PARTIAL";
 
         // Make sure isExecuting is disabled
-        currentNodes = currentNodes.map((n) =>
-          n.id === nodeId ? { ...n, data: { ...n.data, isExecuting: false } } : n
-        );
-        await db.workflow.update({
-          where: { id: workflowId },
-          data: { nodes: currentNodes },
-        });
+        await patchNode(nodeId, { isExecuting: false });
       } finally {
         const nodeEndTime = Date.now();
         const duration = (nodeEndTime - nodeStartTime) / 1000;
 
         nodeDetails.push({
           nodeId,
-          nodeName: 
-            node.type === "requestInputs" ? "Request Inputs" : 
-            node.type === "response" ? "Response" : 
-            node.type === "cropImage" ? "Crop Image" : 
-            node.type === "gemini" ? "Gemini 3.1 Pro" : 
+          nodeName:
+            node.type === "requestInputs" ? "Request Inputs" :
+            node.type === "response" ? "Response" :
+            node.type === "cropImage" ? "Crop Image" :
+            node.type === "gemini" ? (node.data?.model || "Gemini") :
             node.id,
           status: nodeStatus,
           duration,
@@ -348,21 +335,24 @@ async function runOrchestrator(
           outputs: nodeOutputs,
           ...(nodeError && { error: nodeError }),
         });
+
+        // Flush this node's result into history immediately for real-time display
+        await persistHistory(false);
       }
     };
 
-    // 5. Build Promise map and schedule executions topologically / concurrently
+    // 5. Schedule every node. Deferring the body to a microtask guarantees the
+    //    full executionPromises map exists before any node awaits its upstream
+    //    dependencies (otherwise a node listed before its deps would read
+    //    undefined promises and run without their resolved outputs).
     nodesToExecuteIds.forEach((nodeId) => {
-      executionPromises[nodeId] = executeNode(nodeId);
+      executionPromises[nodeId] = Promise.resolve().then(() => executeNode(nodeId));
     });
 
     // Wait for all node promises to fully resolve
     await Promise.all(nodesToExecuteIds.map((nodeId) => executionPromises[nodeId]));
 
-    // 6. Complete overall workflow run
-    const totalDuration = (Date.now() - startTime) / 1000;
-    
-    // Disable any leftover execution flags
+    // 6. Complete overall workflow run — disable any leftover execution flags
     currentNodes = currentNodes.map((n) => ({
       ...n,
       data: { ...n.data, isExecuting: false },
@@ -373,17 +363,10 @@ async function runOrchestrator(
       data: { nodes: currentNodes },
     });
 
-    // Update execution history record
-    await db.executionHistory.update({
-      where: { id: runId },
-      data: {
-        status: runStatus,
-        duration: totalDuration,
-        details: nodeDetails,
-      },
-    });
+    // Finalize execution history record
+    await persistHistory(true);
 
-    console.log(`Execution Run ${runId} completed with status: ${runStatus} in ${totalDuration}s`);
+    console.log(`Execution Run ${runId} completed with status: ${runStatus} in ${(Date.now() - startTime) / 1000}s`);
   } catch (globalErr) {
     console.error("Global orchestrator error:", globalErr);
     await db.executionHistory.update({

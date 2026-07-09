@@ -103,7 +103,9 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
   const [balance, setBalance] = useState("5085.54");
   const [controlsExpanded, setControlsExpanded] = useState(false);
   const [minimapOpen, setMinimapOpen] = useState(false);
-  const [isSelectMode, setIsSelectMode] = useState(true);
+  // false = free-pan (left-drag moves canvas); true = box-select on left-drag.
+  // Nodes stay draggable and selectable in both modes.
+  const [isSelectMode, setIsSelectMode] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { zoom } = useViewport();
@@ -252,7 +254,7 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
         clearInterval(interval);
         setWorkflowExecuting(false);
       }
-    }, 1500);
+    }, 600);
 
     return () => clearInterval(interval);
   }, [workflowId, setNodes, setWorkflowExecuting, setNodeExecuting]);
@@ -506,9 +508,11 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
           maxZoom={1.5}
           minZoom={0.2}
           isValidConnection={isValidConnection}
+          nodesDraggable
+          elementsSelectable
+          selectionOnDrag={isSelectMode}
+          selectionKeyCode="Shift"
           panOnDrag={isSelectMode ? [1, 2] : true}
-          nodesDraggable={isSelectMode}
-          elementsSelectable={isSelectMode}
           className={isSelectMode ? "" : "cursor-grab active:cursor-grabbing"}
         >
           <Background color="#a1a1aa" gap={16} size={1.2} />

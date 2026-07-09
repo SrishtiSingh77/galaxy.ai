@@ -1,15 +1,11 @@
 "use client";
 
-import React from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import {
   Folder,
-  Layers,
-  Bot,
-  Settings,
-  HelpCircle,
   MessageSquare,
   Link2,
   Library,
@@ -21,11 +17,27 @@ import {
   Zap,
   Play,
   Sparkles,
+  GitBranch,
+  Boxes,
+  PanelLeftClose,
+  PanelLeftOpen,
 } from "lucide-react";
 
 export default function LandingPage() {
   const { isSignedIn, isLoaded } = useAuth();
   const router = useRouter();
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+
+  const navItems = [
+    { label: "New task", icon: Plus },
+    { label: "Search tasks", icon: Search },
+    { label: "Tasks", icon: MessageSquare },
+    { label: "Projects", icon: Folder },
+    { label: "Library", icon: Library },
+    { label: "Flow", icon: GitBranch, active: true },
+    { label: "Tools", icon: Boxes },
+    { label: "API and MCP", icon: BookOpen },
+  ];
 
   // If user is already signed in, redirect them directly to dashboard
   React.useEffect(() => {
@@ -76,55 +88,67 @@ export default function LandingPage() {
   return (
     <div className="relative flex h-screen w-screen bg-[#fafafa] overflow-hidden select-none">
       {/* Left Sidebar */}
-      <div className="flex w-[68px] flex-col items-center justify-between border-r border-[#e4e4e7] bg-white py-6 z-10 shrink-0">
-        <div className="flex flex-col items-center gap-6 w-full">
-          <Link
-            href="/"
-            className="flex h-10 w-10 items-center justify-center rounded-xl bg-zinc-950 text-white shadow-md transition hover:scale-105"
-            title="Magica logo"
-          >
-            <svg viewBox="0 0 100 100" className="w-5 h-5 fill-none stroke-current" strokeWidth="10" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M20 75 V28 Q20 22 25 24 L45 52" />
-              <path d="M80 75 V28 Q80 22 75 24 L55 52" />
-              <path d="M50 55 Q50 65 60 65 Q50 65 50 75 Q50 65 40 65 Q50 65 50 55 Z" fill="currentColor" stroke="none" />
-            </svg>
-          </Link>
-          <div className="w-8 border-b border-[#f4f4f5]" />
-          
-          {/* Navigation Icons (styled but disabled on landing) */}
-          <div className="flex flex-col gap-5 text-zinc-400">
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <Plus className="h-5 w-5" />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <Search className="h-5 w-5" />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <MessageSquare className="h-5 w-5" />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <Folder className="h-5 w-5" />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <Library className="h-5 w-5" />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <Layers className="h-5 w-5" />
-            </button>
-            <button className="flex h-9 w-9 items-center justify-center rounded-lg hover:bg-zinc-50 hover:text-zinc-600 transition" disabled>
-              <BookOpen className="h-5 w-5" />
+      <div
+        className={`flex flex-col justify-between border-r border-[#e4e4e7] bg-white shrink-0 overflow-hidden z-10 transition-[width] duration-300 ease-in-out ${
+          sidebarOpen ? "w-[240px]" : "w-[72px]"
+        }`}
+      >
+        <div className="flex flex-col">
+          {/* Brand */}
+          <div className={`flex items-center py-4 ${sidebarOpen ? "justify-between px-5" : "justify-center px-2"}`}>
+            {sidebarOpen && (
+              <Link href="/" title="Galaxy">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/galaxy.png" alt="Galaxy" className="h-6 w-auto object-contain" />
+              </Link>
+            )}
+            <button
+              onClick={() => setSidebarOpen((v) => !v)}
+              title={sidebarOpen ? "Collapse sidebar" : "Expand sidebar"}
+              className="rounded-md p-1 text-zinc-400 hover:bg-zinc-50 hover:text-zinc-700 transition"
+            >
+              {sidebarOpen ? <PanelLeftClose className="h-4 w-4" /> : <PanelLeftOpen className="h-4 w-4" />}
             </button>
           </div>
+
+          {/* Nav — links to sign-in on the landing page */}
+          <nav className="flex flex-col gap-0.5 px-3">
+            {navItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.label}
+                  href="/sign-in"
+                  title={item.label}
+                  className={`flex items-center gap-3 rounded-lg py-2 text-sm font-medium transition ${
+                    sidebarOpen ? "px-3" : "px-0 justify-center"
+                  } ${
+                    item.active
+                      ? "bg-zinc-100 text-zinc-950"
+                      : "text-zinc-500 hover:bg-zinc-50 hover:text-zinc-900"
+                  }`}
+                >
+                  <Icon className="h-[18px] w-[18px] shrink-0" />
+                  {sidebarOpen && <span className="whitespace-nowrap">{item.label}</span>}
+                </Link>
+              );
+            })}
+          </nav>
         </div>
 
-        {/* Sign In Trigger Icon at bottom */}
-        <Link
-          href="/sign-in"
-          className="flex h-10 w-10 items-center justify-center rounded-lg text-zinc-400 hover:bg-zinc-50 hover:text-zinc-900 transition-all"
-          title="Sign In"
-        >
-          <LogIn className="h-5 w-5" />
-        </Link>
+        {/* Sign In at bottom */}
+        <div className="border-t border-[#f4f4f5] p-3">
+          <Link
+            href="/sign-in"
+            title="Sign In"
+            className={`flex items-center gap-3 rounded-lg py-2 text-sm font-semibold text-zinc-700 hover:bg-zinc-50 transition ${
+              sidebarOpen ? "px-3" : "px-0 justify-center"
+            }`}
+          >
+            <LogIn className="h-[18px] w-[18px] shrink-0" />
+            {sidebarOpen && "Sign In"}
+          </Link>
+        </div>
       </div>
 
       {/* Main Content Area */}

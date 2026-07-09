@@ -10,9 +10,9 @@ import Transloadit from "@uppy/transloadit";
 export default function GeminiNode({ id, data }: { id: string; data: any }) {
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
   const edges = useWorkflowStore((state) => state.edges);
-  const executingNodeIds = useWorkflowStore((state) => state.executingNodeIds);
 
-  const isExecuting = executingNodeIds.includes(id);
+  // Glow reflects the live DB state synced into node data during a run
+  const isExecuting = !!data.isExecuting;
 
   // Connection check helpers
   const isPromptConnected = edges.some((e) => e.target === id && e.targetHandle === "prompt");
