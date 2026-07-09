@@ -9,6 +9,22 @@ const executeWorkflowSchema = z.object({
   selectedNodeIds: z.array(z.string()).optional(), // For selective execution
 });
 
+// Replace inline base64 data URLs with a short marker before persisting to
+// ExecutionHistory. Keeps records (and history-poll transfer) tiny; CDN/http
+// URLs are kept as-is so thumbnails still render.
+function stripInlineData(value: any): any {
+  if (typeof value === "string") {
+    return value.startsWith("data:") && value.length > 256 ? "[inline data omitted]" : value;
+  }
+  if (Array.isArray(value)) return value.map(stripInlineData);
+  if (value && typeof value === "object") {
+    const out: Record<string, any> = {};
+    for (const k of Object.keys(value)) out[k] = stripInlineData(value[k]);
+    return out;
+  }
+  return value;
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -331,8 +347,8 @@ async function runOrchestrator(
             node.id,
           status: nodeStatus,
           duration,
-          inputs: nodeInputs,
-          outputs: nodeOutputs,
+          inputs: stripInlineData(nodeInputs),
+          outputs: stripInlineData(nodeOutputs),
           ...(nodeError && { error: nodeError }),
         });
 

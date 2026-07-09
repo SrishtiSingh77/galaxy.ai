@@ -27,6 +27,8 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
   const [fields, setFields] = useState<RequestInputField[]>(data.fields || []);
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
+  // Local-only base64 previews (never persisted to the DB — only the CDN URL is)
+  const [previews, setPreviews] = useState<Record<string, string>>({});
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [expandedFieldId, setExpandedFieldId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -97,20 +99,22 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
     updateFields([...fields, duplicated]);
   };
 
-  // Uppy + Transloadit upload
+  // Uppy + Transloadit upload — persists only the CDN URL, keeps base64 local for preview
   const handleFileUpload = (fieldId: string, file: File, type: string) => {
     setUploadingFieldId(fieldId);
     setUploadProgress(0);
 
-    // 1. Immediately set base64 URL so UI is responsive and has a valid value
+    // 1. Local base64 preview only (NOT persisted to DB) so the thumbnail shows instantly
+    let base64Url = "";
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64Url = reader.result as string;
-      updateFields(
-        fields.map((f) => (f.id === fieldId ? { ...f, value: base64Url } : f))
-      );
+      base64Url = reader.result as string;
+      setPreviews((p) => ({ ...p, [fieldId]: base64Url }));
     };
     reader.readAsDataURL(file);
+
+    const setFieldValue = (val: string) =>
+      updateFields(fields.map((f) => (f.id === fieldId ? { ...f, value: val } : f)));
 
     const allowedTypes = type === "image_field" ? ["image/*"] : (type === "audio_field" ? ["audio/*"] : (type === "video_field" ? ["video/*"] : []));
 
@@ -138,18 +142,24 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
 
     uppyInstance.on("transloadit:complete", (assembly) => {
       const fileUrl = assembly.results?.export?.[0]?.ssl_url || assembly.results?.[":original"]?.[0]?.ssl_url;
-      if (fileUrl) {
-        updateFields(
-          fields.map((f) => (f.id === fieldId ? { ...f, value: fileUrl } : f))
-        );
-      }
+      // Persist the CDN URL only; fall back to base64 solely if no URL came back
+      setFieldValue(fileUrl || base64Url);
+      setPreviews((p) => {
+        const { [fieldId]: _, ...rest } = p;
+        return rest;
+      });
       setUploadingFieldId(null);
       setUploadProgress(0);
     });
 
     uppyInstance.on("error", (error) => {
       console.error("Transloadit Upload Error:", error);
-      // Already set to base64, just clear spinner
+      // Upload failed — persist base64 so the workflow still has a usable value
+      setFieldValue(base64Url);
+      setPreviews((p) => {
+        const { [fieldId]: _, ...rest } = p;
+        return rest;
+      });
       setUploadingFieldId(null);
       setUploadProgress(0);
     });
@@ -214,6 +224,8 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
           </div>
         ) : (
           fields.map((field) => {
+            // Prefer local base64 preview during upload; otherwise the persisted (CDN) value
+            const displayVal = previews[field.id] || field.value;
             return (
               <div key={field.id} className="relative flex flex-col gap-1.5 border-t border-zinc-50 pt-3 first:border-none first:pt-0">
                 <div className="flex items-center justify-between">
@@ -288,23 +300,29 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                 ) : (
                   /* Media Fields: Image, Audio, Video, Media, File */
                   <div className="flex flex-col gap-2">
-                    {field.value ? (
+                    {displayVal ? (
                       <div className="relative rounded-lg border border-zinc-200 overflow-hidden bg-zinc-50">
                         {field.type === "image_field" ? (
                           /* eslint-disable-next-line @next/next/no-img-element */
                           <img
-                            src={field.value}
+                            src={displayVal}
                             alt="Uploaded Preview"
                             className="h-28 w-full object-contain"
                           />
                         ) : (
                           <div className="flex items-center gap-2 p-3 text-xs text-zinc-600 font-semibold truncate bg-white">
                             <FileText className="h-4 w-4 text-zinc-400 shrink-0" />
-                            <span className="truncate">{field.value.split("/").pop()}</span>
+                            <span className="truncate">{displayVal.split("/").pop()}</span>
                           </div>
                         )}
                         <button
-                          onClick={() => handleTextChange(field.id, "")}
+                          onClick={() => {
+                            handleTextChange(field.id, "");
+                            setPreviews((p) => {
+                              const { [field.id]: _, ...rest } = p;
+                              return rest;
+                            });
+                          }}
                           className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white hover:bg-black/80 transition"
                         >
                           <Trash2 className="h-3 w-3" />

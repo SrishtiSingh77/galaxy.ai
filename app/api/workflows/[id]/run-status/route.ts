@@ -36,11 +36,12 @@ export async function GET(
       return NextResponse.json({ error: "Execution run not found" }, { status: 404 });
     }
 
+    // Poll payload: client only needs status + live node data. Omit edges to
+    // cut per-poll transfer (nodes already carry the image-heavy data).
     return NextResponse.json({
       status: execution.status,
       duration: execution.duration,
       nodes: workflow.nodes,
-      edges: workflow.edges,
     });
   } catch (error) {
     console.error("GET /api/workflows/[id]/run-status error:", error);

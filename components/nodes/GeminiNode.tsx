@@ -56,11 +56,11 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
   const handleFileUpload = (type: string, file: File) => {
     setUploadingType(type);
 
-    // 1. Immediately set base64 URL so UI is responsive and backend has a valid asset fallback
+    // Keep base64 in memory only (not persisted) as a fallback if the CDN upload fails
+    let base64Url = "";
     const reader = new FileReader();
     reader.onloadend = () => {
-      const base64Url = reader.result as string;
-      handleUpdate({ [`${type}Val`]: base64Url });
+      base64Url = reader.result as string;
     };
     reader.readAsDataURL(file);
 
@@ -83,15 +83,15 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
 
     uppyInstance.on("transloadit:complete", (assembly) => {
       const fileUrl = assembly.results?.export?.[0]?.ssl_url || assembly.results?.[":original"]?.[0]?.ssl_url;
-      if (fileUrl) {
-        handleUpdate({ [`${type}Val`]: fileUrl });
-      }
+      // Persist the CDN URL only; use base64 solely if no URL was returned
+      handleUpdate({ [`${type}Val`]: fileUrl || base64Url });
       setUploadingType(null);
     });
 
     uppyInstance.on("error", (error) => {
       console.error("Gemini Asset Upload Error:", error);
-      // Already set to base64, just clear spinner
+      // Upload failed — persist base64 so the model still receives the asset
+      handleUpdate({ [`${type}Val`]: base64Url });
       setUploadingType(null);
     });
   };

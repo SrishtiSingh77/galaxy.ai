@@ -265,6 +265,9 @@ const normalizeEdges = (edges: Edge[], nodes: Node<NodeData>[]): Edge[] =>
     };
   });
 
+// Debounce handle for background DB auto-save (see updateDatabase)
+let saveTimeout: ReturnType<typeof setTimeout> | null = null;
+
 export const useWorkflowStore = create<WorkflowState>((set, get) => ({
   nodes: [],
   edges: [],
@@ -472,18 +475,25 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
     set({ historySidebarOpen: isOpen });
   },
 
-  // Helper function to sync with db in background
+  // Debounced background auto-save. Coalesces rapid edits (slider drags,
+  // typing) into a single PATCH ~800ms after the last change, so we don't
+  // ship the full (image-heavy) nodes JSON to the DB on every keystroke.
   updateDatabase: async () => {
-    const { activeWorkflowId, nodes, edges } = get();
+    const { activeWorkflowId } = get();
     if (!activeWorkflowId) return;
-    try {
-      await fetch(`/api/workflows/${activeWorkflowId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ nodes, edges }),
-      });
-    } catch (err) {
-      console.error("Failed to auto-save workflow to database:", err);
-    }
+    if (saveTimeout) clearTimeout(saveTimeout);
+    saveTimeout = setTimeout(async () => {
+      const { activeWorkflowId: id, nodes, edges } = get();
+      if (!id) return;
+      try {
+        await fetch(`/api/workflows/${id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ nodes, edges }),
+        });
+      } catch (err) {
+        console.error("Failed to auto-save workflow to database:", err);
+      }
+    }, 800);
   },
 }));
