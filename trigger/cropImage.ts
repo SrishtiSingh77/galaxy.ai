@@ -4,7 +4,7 @@ import fs from "fs";
 import path from "path";
 import https from "https";
 import http from "http";
-import { saveBuffer } from "@/lib/storage";
+import { saveBuffer, cropImageOnCloudinary, CLOUDINARY_READY } from "@/lib/storage";
 // Loaded dynamically via eval("require") at runtime to prevent Webpack bundling errors
 
 interface CropPayload {
@@ -97,8 +97,20 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
     throw new Error("No image URL provided for cropping");
   }
 
+  // Preferred path: crop on Cloudinary (a URL transformation). No FFmpeg binary
+  // and no local disk, so it works the same locally and on serverless production.
+  if (CLOUDINARY_READY) {
+    try {
+      const url = await cropImageOnCloudinary(imageUrl, { x, y, width, height });
+      console.log("Cropped via Cloudinary:", url);
+      return url;
+    } catch (e) {
+      console.error("Cloudinary crop failed, falling back to FFmpeg:", e);
+    }
+  }
+
+  // Fallback (local dev without Cloudinary): FFmpeg. Does NOT work on serverless.
   // Clamp so the crop rectangle stays inside the image (offset + size <= 100).
-  // Otherwise FFmpeg errors ("crop area out of bounds") and returns uncropped.
   const safeX = Math.max(0, Math.min(99, x));
   const safeY = Math.max(0, Math.min(99, y));
   const safeWidth = Math.max(1, Math.min(100 - safeX, width));

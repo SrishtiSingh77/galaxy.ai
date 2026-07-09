@@ -71,3 +71,33 @@ export const saveBuffer = async (buffer: Buffer, ext: string): Promise<string> =
   }
   return saveToDisk(buffer, ext);
 };
+
+// True when Cloudinary creds are present — crop runs on Cloudinary (serverless-safe)
+export const CLOUDINARY_READY = CLOUDINARY_CONFIGURED;
+
+// Crop an image via a Cloudinary transformation (no FFmpeg / no local disk, so it
+// works identically in dev and serverless production). x/y/width/height are
+// percentages (0-100); Cloudinary takes them as 0-1 fractions of the original.
+export const cropImageOnCloudinary = async (
+  imageUrl: string,
+  region: { x: number; y: number; width: number; height: number }
+): Promise<string> => {
+  const clampX = Math.max(0, Math.min(99, region.x));
+  const clampY = Math.max(0, Math.min(99, region.y));
+  const clampW = Math.max(1, Math.min(100 - clampX, region.width));
+  const clampH = Math.max(1, Math.min(100 - clampY, region.height));
+
+  const result = await cloudinary.uploader.upload(imageUrl, {
+    folder: "galaxyai",
+    transformation: [
+      {
+        crop: "crop",
+        width: (clampW / 100).toFixed(4),
+        height: (clampH / 100).toFixed(4),
+        x: (clampX / 100).toFixed(4),
+        y: (clampY / 100).toFixed(4),
+      },
+    ],
+  });
+  return result.secure_url;
+};
