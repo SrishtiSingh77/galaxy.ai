@@ -3,6 +3,7 @@ import { auth } from "@clerk/nextjs/server";
 import { db } from "@/lib/db";
 import { runCropImage } from "@/trigger/cropImage";
 import { runGemini } from "@/trigger/geminiTask";
+import { waitUntil } from "@vercel/functions";
 import { z } from "zod";
 
 // The orchestrator runs in the background after the response is sent, and the
@@ -98,8 +99,27 @@ export async function POST(
       },
     });
 
-    // Start background orchestration
-    runOrchestrator(workflow.id, userId, execution.id, selectedNodeIds);
+    // Start background orchestration.
+    //
+    // The response is returned immediately so the client can begin polling
+    // run-status, but a serverless platform freezes the function the moment the
+    // response is sent — which killed the orchestrator before a single node ran
+    // and left the history row stuck at status RUNNING / duration 0.
+    // waitUntil keeps the invocation alive until the run settles.
+    const orchestration = runOrchestrator(
+      workflow.id,
+      userId,
+      execution.id,
+      selectedNodeIds
+    ).catch((e) => console.error("Orchestrator crashed:", e));
+
+    // Outside a Vercel request context there is nothing to extend, and the Node
+    // process stays alive on its own — so a failure here is not fatal.
+    try {
+      waitUntil(orchestration);
+    } catch (e) {
+      console.warn("waitUntil unavailable (not on Vercel) — relying on the host process:", e);
+    }
 
     return NextResponse.json({ runId: execution.id });
   } catch (error) {

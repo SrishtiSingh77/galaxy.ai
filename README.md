@@ -554,7 +554,12 @@ FFmpeg is retained purely as an offline convenience so the crop still works with
 
 The Crop task holds for a full 30 seconds by design, as the specification requires. Because independent nodes execute concurrently, this cost is **paid once, not per node** — two crops still complete in ~30 s rather than 60 s ([measured](#verified-behaviour)).
 
-**To tune:** the orchestrator continues working after the HTTP response is sent, so give the function room to finish. `maxDuration = 300` is already declared on the execute route; on hosts that freeze a process at response time, either raise the platform limit to match or dispatch the crop through Trigger.dev (the SDK is already wired in).
+**To tune:** the orchestrator keeps working after the HTTP response is sent, so the run must outlive the response. Two things make that safe:
+
+- `waitUntil()` wraps the orchestration, so a serverless platform keeps the invocation alive until the run settles instead of freezing it the moment `runId` is returned. Without this the history row stays pinned at `status: RUNNING, duration: 0` and no node ever executes.
+- `maxDuration = 300` is declared on the execute route.
+
+`maxDuration` is still clamped by your hosting plan — Vercel Hobby caps at 60 s, Pro at 300 s. A single crop plus one Gemini call fits comfortably inside 60 s; a wider graph needs the higher ceiling, or the crop dispatched through Trigger.dev (the SDK is already wired in).
 
 ### 🔗 Transloadit storage tiers
 
