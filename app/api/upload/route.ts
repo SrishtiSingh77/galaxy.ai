@@ -2,8 +2,25 @@ import { NextResponse } from "next/server";
 import { auth } from "@clerk/nextjs/server";
 import { saveBuffer, extFromMime } from "@/lib/storage";
 
-// Saves an upload to local disk (/public/uploads) and returns its URL.
-// Keeps flaky client uploads and base64 blobs out of the app entirely.
+// Browsers occasionally hand over a file with an empty or unhelpful MIME type
+// (notably on some mobile pickers). Falling straight through to "bin" then
+// produces a .bin upload that Transloadit stores as an opaque blob and Gemini
+// vision refuses, so fall back to the filename's own extension first.
+const resolveExt = (file: File): string => {
+  const fromMime = extFromMime(file.type || "");
+  if (fromMime !== "bin") return fromMime;
+
+  const match = /\.([a-z0-9]{2,5})$/i.exec(file.name || "");
+  const fromName = match?.[1]?.toLowerCase();
+  const known = ["png", "jpg", "jpeg", "webp", "gif", "svg", "mp4", "webm", "mp3", "wav", "ogg", "pdf"];
+  if (fromName && known.includes(fromName)) {
+    return fromName === "jpeg" ? "jpg" : fromName;
+  }
+  return "bin";
+};
+
+// Saves an upload to the configured CDN (or local disk in dev) and returns its
+// URL. Keeps flaky client uploads and base64 blobs out of the app entirely.
 export async function POST(request: Request) {
   try {
     const { userId } = auth();
@@ -18,7 +35,7 @@ export async function POST(request: Request) {
     }
 
     const buffer = Buffer.from(await file.arrayBuffer());
-    const url = await saveBuffer(buffer, extFromMime(file.type || ""));
+    const url = await saveBuffer(buffer, resolveExt(file));
 
     return NextResponse.json({ url });
   } catch (error: any) {

@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "verify:dag": "npx --yes tsx --env-file=.env scripts/verify-dag.ts",
+    "verify:execution": "npx --yes tsx --env-file=.env scripts/verify-execution.ts",
     "postinstall": "prisma generate"
   },
   "dependencies": {

@@ -94,6 +94,34 @@ Request Inputs
 
 **6/6 passing.**
 
+### Full-stack execution check
+
+`npm run verify:execution` drives the **real** orchestrator against the **real** database and crop task, bypassing only HTTP and Clerk. It creates a temporary workflow, runs it, asserts, then deletes it.
+
+| Check | Result | Measured |
+|---|:--:|---|
+| History reaches a terminal status | ✅ | `SUCCESS` |
+| History duration advances past 0 | ✅ | **31.0 s** |
+| History records every node | ✅ | 4 node records |
+| History streams *during* the run | ✅ | partial details observed while `RUNNING` |
+| Glow state visible mid-run | ✅ | `isExecuting: true` observed on a node |
+| Crop resolves its upstream image | ✅ | both crops received the connected URL |
+| Crop produces a CDN URL | ✅ | `https://…` — no base64, blob, or `localhost` |
+| Crop output differs from its input | ✅ | actually cropped, not passed through |
+| Response collects every output | ✅ | 2 results |
+| Response values are plain strings | ✅ | `["string","string"]` |
+| Response exposes no node ids | ✅ | keys are exactly `["type","value"]` |
+| Crops run concurrently | ✅ | whole run **31.1 s**, not 60 s |
+
+**16/16 passing.** Response node payload, verbatim:
+
+```json
+[
+  { "type": "image", "value": "https://…/d8f11f2589b042f4a9ba6786c2f2c2dc.png" },
+  { "type": "image", "value": "https://…/cc831a74ebf54992ab22ccc4aeda38b3.png" }
+]
+```
+
 ### Image outputs
 
 Both crop nodes returned Transloadit CDN URLs — no base64, no blobs, no `localhost`:

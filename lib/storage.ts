@@ -44,6 +44,39 @@ export const extFromMime = (mime: string): string => {
   return "bin";
 };
 
+// Map an extension back to a real MIME type. Sending a synthesised one like
+// "image/bin" makes Transloadit treat the upload as an opaque blob instead of an
+// image, so it skips the template's image steps and the stored file keeps a
+// .bin extension that downstream consumers (Gemini vision, Cloudinary) reject.
+const mimeFromExt = (ext: string): string => {
+  switch (ext) {
+    case "png":
+      return "image/png";
+    case "jpg":
+      return "image/jpeg";
+    case "webp":
+      return "image/webp";
+    case "gif":
+      return "image/gif";
+    case "svg":
+      return "image/svg+xml";
+    case "mp4":
+      return "video/mp4";
+    case "webm":
+      return "video/webm";
+    case "mp3":
+      return "audio/mpeg";
+    case "wav":
+      return "audio/wav";
+    case "ogg":
+      return "audio/ogg";
+    case "pdf":
+      return "application/pdf";
+    default:
+      return "application/octet-stream";
+  }
+};
+
 // Upload a buffer to Cloudinary and return its secure CDN URL
 const uploadToCloudinary = (buffer: Buffer): Promise<string> =>
   new Promise((resolve, reject) => {
@@ -96,7 +129,7 @@ const fetchBuffer = (url: string, redirects = 0): Promise<Buffer> =>
 export const saveBuffer = async (buffer: Buffer, ext: string): Promise<string> => {
   if (TRANSLOADIT_READY) {
     try {
-      return await uploadBufferToTransloadit(buffer, `asset.${ext}`, `image/${ext}`);
+      return await uploadBufferToTransloadit(buffer, `asset.${ext}`, mimeFromExt(ext));
     } catch (e) {
       console.error("Transloadit upload failed, falling back to Cloudinary:", e);
     }
@@ -114,7 +147,7 @@ export const publishToCdn = async (url: string, ext = "png"): Promise<string> =>
   if (!TRANSLOADIT_READY || !url || url.startsWith("data:")) return url;
   try {
     const buffer = await fetchBuffer(url);
-    return await uploadBufferToTransloadit(buffer, `asset.${ext}`, `image/${ext}`);
+    return await uploadBufferToTransloadit(buffer, `asset.${ext}`, mimeFromExt(ext));
   } catch (e) {
     console.error("Transloadit re-host failed, keeping source CDN URL:", e);
     return url;
