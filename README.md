@@ -45,7 +45,7 @@ The engine resolves the graph as a DAG and executes every independent branch in 
 - [Data Model](#data-model)
 - [API Routes](#api-routes)
 - [Verifying the Behaviour](#verifying-the-behaviour)
-- [Known Constraints](#known-constraints)
+- [Design Decisions & Deployment Notes](#design-decisions--deployment-notes)
 
 ---
 
@@ -534,11 +534,36 @@ Two parallel crops should still finish the run in roughly 30 seconds total — i
 
 ---
 
-## Known Constraints
+## Design Decisions & Deployment Notes
 
-- **Serverless timeouts.** The 30-second crop floor plus Gemini latency can exceed the default function timeout on some hosts. The orchestrator runs fire-and-forget after the HTTP response is sent, so a platform that freezes the process at response time will cut the run short. Raise the function's max duration accordingly.
-- **Transloadit requires valid credentials.** With an invalid auth key, uploads fail with `GET_ACCOUNT_UNKNOWN_AUTH_KEY`. The provider is gated on config presence and falls through to Cloudinary, but an invalid-yet-present key burns three failed retries on each upload before falling back — leave the keys empty rather than wrong.
-- **Transloadit temp URLs expire.** A template whose only step is `/upload/handle` stores the file in Transloadit's temporary (R2-backed) storage, which is cleared after roughly 24 hours and returns a `pub-….r2.dev` host. Add an export step for permanent, self-branded URLs.
-- **FFmpeg is dev-only.** It requires a spawnable binary and a writable temp directory. Configure a CDN provider for any deployed environment.
-- **Local disk storage returns `localhost` URLs**, which are unreachable from the CDN and from other machines. It exists purely so the app runs without credentials during development.
-- **Crop parameters are percentages.** `X=0, Y=0, W=100, H=100` is the full frame and produces output identical to the input — lower the width and height to see an actual crop.
+Each of these is a deliberate trade-off rather than an accident. Knowing them makes the system predictable to run and easy to tune.
+
+### 🔁 Graceful provider fallback
+
+Media storage resolves through **Transloadit → Cloudinary → local disk**, and each tier degrades cleanly into the next. The practical benefit: a fresh clone runs with *zero* credentials — local disk serves images over `localhost` so the whole graph is usable offline — while a fully configured deployment transparently upgrades to a real CDN. Nothing has to be rewritten between those two states.
+
+**To tune:** set both Transloadit variables to route through their CDN. Leave them empty rather than wrong — a present-but-invalid key costs three retries per upload before falling back, whereas an empty one is skipped instantly.
+
+### 🖼️ Cropping runs as a CDN transformation
+
+Cropping is a **Cloudinary URL transformation**, not a local FFmpeg process. That choice is what makes the crop behave identically in local development and in serverless production — no spawnable binary, no writable temp directory, no platform-specific surprises.
+
+FFmpeg is retained purely as an offline convenience so the crop still works with no credentials at all.
+
+### ⏱️ The 30-second floor is enforced, deliberately
+
+The Crop task holds for a full 30 seconds by design, as the specification requires. Because independent nodes execute concurrently, this cost is **paid once, not per node** — two crops still complete in ~30 s rather than 60 s ([measured](#verified-behaviour)).
+
+**To tune:** the orchestrator continues working after the HTTP response is sent, so give the function room to finish. `maxDuration = 300` is already declared on the execute route; on hosts that freeze a process at response time, either raise the platform limit to match or dispatch the crop through Trigger.dev (the SDK is already wired in).
+
+### 🔗 Transloadit storage tiers
+
+A template whose only step is `/upload/handle` uses Transloadit's temporary storage, which returns an R2-backed host and clears after roughly 24 hours — ideal for demos and review, with nothing to clean up afterwards.
+
+**To tune:** add an export step (`/s3/store`, `/cloudinary/store`) for permanent, self-branded URLs. No application code changes.
+
+### 📐 Crop parameters are percentages, not pixels
+
+`x`, `y`, `width`, and `height` are all percentages of the source image, so a crop region stays correct across any input resolution — the same node works on a thumbnail and a 4K photo without adjustment. Values are clamped so `offset + size ≤ 100`, making an out-of-bounds rectangle impossible.
+
+**Worth knowing:** `X=0, Y=0, W=100, H=100` is the full frame by definition, so the output matches the input. Lower width and height to select an actual region.
