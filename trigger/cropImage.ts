@@ -4,7 +4,12 @@ import fs from "fs";
 import path from "path";
 import https from "https";
 import http from "http";
-import { saveBuffer, cropImageOnCloudinary, CLOUDINARY_READY } from "@/lib/storage";
+import { saveBuffer, cropImageOnCloudinary, publishToCdn, CLOUDINARY_READY } from "@/lib/storage";
+
+// Assignment requirement: the Crop Image task must always take at least 30s.
+// The wait happens inside the task (after the crop, before returning), so every
+// Crop node's recorded duration in the execution history is 30s+.
+const MIN_TASK_DURATION_MS = 30_000;
 // Loaded dynamically via eval("require") at runtime to prevent Webpack bundling errors
 
 interface CropPayload {
@@ -89,7 +94,24 @@ const downloadWithRetry = async (url: string, dest: string, attempts = 4): Promi
   throw lastErr;
 };
 
+// Public entry point: crop, then hold the task open until the 30s floor is met.
+// Independent Crop nodes run concurrently, so two crops still finish in ~30s
+// total, not 60s.
 export const runCropImage = async (payload: CropPayload): Promise<string> => {
+  const taskStart = Date.now();
+  const result = await performCrop(payload);
+
+  const elapsed = Date.now() - taskStart;
+  const remaining = MIN_TASK_DURATION_MS - elapsed;
+  if (remaining > 0) {
+    console.log(`Crop finished in ${elapsed}ms — waiting ${remaining}ms to satisfy the 30s minimum.`);
+    await new Promise((r) => setTimeout(r, remaining));
+  }
+
+  return result;
+};
+
+const performCrop = async (payload: CropPayload): Promise<string> => {
   console.log("Starting Crop Image Task with payload:", payload);
 
   const { imageUrl, x, y, width, height } = payload;
@@ -102,8 +124,11 @@ export const runCropImage = async (payload: CropPayload): Promise<string> => {
   if (CLOUDINARY_READY) {
     try {
       const url = await cropImageOnCloudinary(imageUrl, { x, y, width, height });
-      console.log("Cropped via Cloudinary:", url);
-      return url;
+      // Re-host on Transloadit when configured so the output is a Transloadit
+      // CDN URL; otherwise the Cloudinary CDN URL is returned unchanged.
+      const cdnUrl = await publishToCdn(url);
+      console.log("Cropped image CDN URL:", cdnUrl);
+      return cdnUrl;
     } catch (e) {
       console.error("Cloudinary crop failed, falling back to FFmpeg:", e);
     }

@@ -8,7 +8,7 @@ import { useWorkflowStore } from "@/store/useWorkflowStore";
 export default function ResponseNode({ id, data }: { id: string; data: any }) {
   const edges = useWorkflowStore((state) => state.edges);
   const isResultConnected = edges.some((e) => e.target === id && e.targetHandle === "result");
-  const [results, setResults] = useState<Array<{ source: string; value: string; type: string }>>(data.results || []);
+  const [results, setResults] = useState<Array<{ value: string; type: string }>>(data.results || []);
 
   useEffect(() => {
     setResults(data.results || []);
@@ -62,19 +62,18 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
               </div>
             ) : (
               results.map((res, index) => {
-                const isImage = res.type === "image" || res.value.startsWith("http") && (res.value.includes(".png") || res.value.includes(".jpg") || res.value.includes(".jpeg") || res.value.includes("blob:") || res.value.includes("transloadit"));
+                const isImage = res.type === "image";
                 return (
                   <div key={index} className="flex flex-col gap-1.5 bg-zinc-50 border border-zinc-200 rounded-lg p-2.5">
+                    {/* Only the output itself is shown — no node ids or run metadata */}
                     <div className="flex justify-between items-center text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
-                      <span>Source: {res.source}</span>
-                      {!isImage && (
-                        <button
-                          onClick={() => copyToClipboard(res.value)}
-                          className="hover:text-zinc-600 p-0.5 rounded transition"
-                        >
-                          <Clipboard className="h-3.5 w-3.5" />
-                        </button>
-                      )}
+                      <span>{isImage ? "Image" : "Text"}</span>
+                      <button
+                        onClick={() => copyToClipboard(res.value)}
+                        className="hover:text-zinc-600 p-0.5 rounded transition"
+                      >
+                        <Clipboard className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                     {isImage ? (
                       <div className="rounded-lg border border-zinc-250 bg-white overflow-hidden max-h-36 flex items-center justify-center">
@@ -89,6 +88,10 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
                       <p className="text-xs text-zinc-700 font-medium whitespace-pre-wrap max-h-36 overflow-y-auto">
                         {res.value}
                       </p>
+                    )}
+                    {/* Image outputs also expose their CDN URL as plain text */}
+                    {isImage && (
+                      <p className="text-[10px] text-zinc-500 break-all font-mono">{res.value}</p>
                     )}
                   </div>
                 );

@@ -1,8 +1,14 @@
 import https from "https";
 
-const AUTH_KEY = process.env.NEXT_PUBLIC_TRANSLOADIT_AUTH_KEY || "srish011";
+const AUTH_KEY =
+  process.env.TRANSLOADIT_AUTH_KEY || process.env.NEXT_PUBLIC_TRANSLOADIT_AUTH_KEY || "";
 const TEMPLATE_ID =
-  process.env.NEXT_PUBLIC_TRANSLOADIT_TEMPLATE_ID || "b11d22eefc3b42ab9a9685710e74b9f9";
+  process.env.TRANSLOADIT_TEMPLATE_ID || process.env.NEXT_PUBLIC_TRANSLOADIT_TEMPLATE_ID || "";
+
+// Transloadit is only usable when BOTH an auth key and a template are present.
+// (A missing/invalid key surfaces as GET_ACCOUNT_UNKNOWN_AUTH_KEY at upload time,
+// so we gate on config here and let storage.ts fall through to the next provider.)
+export const TRANSLOADIT_READY = !!(AUTH_KEY && TEMPLATE_ID);
 
 // Poll a Transloadit assembly until it completes, then resolve its result URL
 const pollAssembly = (

@@ -1,6 +1,9 @@
 import fs from "fs";
 import path from "path";
+import https from "https";
+import http from "http";
 import { v2 as cloudinary } from "cloudinary";
+import { uploadBufferToTransloadit, TRANSLOADIT_READY } from "./transloadit";
 
 // Base URL for locally-served assets (dev fallback only)
 const BASE_URL = process.env.APP_URL || "http://localhost:3003";
@@ -63,13 +66,59 @@ const saveToDisk = (buffer: Buffer, ext: string): string => {
   return `${BASE_URL}/uploads/${name}`;
 };
 
-// Persist a buffer and return its public URL. Uses Cloudinary in production
-// (when configured), falling back to local disk for dev. Never stores base64.
+// Download a remote URL into a Buffer (follows redirects, rejects non-200).
+const fetchBuffer = (url: string, redirects = 0): Promise<Buffer> =>
+  new Promise((resolve, reject) => {
+    if (redirects > 5) return reject(new Error("Too many redirects"));
+    const client = url.startsWith("http:") ? http : https;
+    client
+      .get(url, (res) => {
+        const status = res.statusCode || 0;
+        if (status >= 300 && status < 400 && res.headers.location) {
+          res.resume();
+          resolve(fetchBuffer(new URL(res.headers.location, url).toString(), redirects + 1));
+          return;
+        }
+        if (status !== 200) {
+          res.resume();
+          return reject(new Error(`Fetch failed: HTTP ${status} for ${url}`));
+        }
+        const chunks: Buffer[] = [];
+        res.on("data", (c) => chunks.push(c as Buffer));
+        res.on("end", () => resolve(Buffer.concat(chunks)));
+      })
+      .on("error", reject);
+  });
+
+// Persist a buffer and return its public CDN URL.
+// Provider order: Transloadit (assignment CDN) → Cloudinary → local disk (dev only).
+// Never returns base64, blobs, or Buffers.
 export const saveBuffer = async (buffer: Buffer, ext: string): Promise<string> => {
+  if (TRANSLOADIT_READY) {
+    try {
+      return await uploadBufferToTransloadit(buffer, `asset.${ext}`, `image/${ext}`);
+    } catch (e) {
+      console.error("Transloadit upload failed, falling back to Cloudinary:", e);
+    }
+  }
   if (CLOUDINARY_CONFIGURED) {
     return uploadToCloudinary(buffer);
   }
   return saveToDisk(buffer, ext);
+};
+
+// Re-host an already-public URL on the Transloadit CDN so every image output in
+// the graph is a Transloadit URL. No-op (returns the input) when Transloadit is
+// not configured, so the Cloudinary CDN URL is used instead.
+export const publishToCdn = async (url: string, ext = "png"): Promise<string> => {
+  if (!TRANSLOADIT_READY || !url || url.startsWith("data:")) return url;
+  try {
+    const buffer = await fetchBuffer(url);
+    return await uploadBufferToTransloadit(buffer, `asset.${ext}`, `image/${ext}`);
+  } catch (e) {
+    console.error("Transloadit re-host failed, keeping source CDN URL:", e);
+    return url;
+  }
 };
 
 // True when Cloudinary creds are present — crop runs on Cloudinary (serverless-safe)

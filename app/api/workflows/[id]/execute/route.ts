@@ -25,6 +25,32 @@ function stripInlineData(value: any): any {
   return value;
 }
 
+// Flatten whatever a node produced into the plain string a user expects to see.
+// Upstream tasks return strings, but a wrapped shape like { response: { text } }
+// must never reach the Response node as raw JSON.
+function unwrapOutput(value: any): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "string") return value;
+  if (typeof value === "number" || typeof value === "boolean") return String(value);
+  if (Array.isArray(value)) return value.map(unwrapOutput).filter(Boolean).join("\n");
+  if (typeof value === "object") {
+    // Unwrap the common single-payload wrappers, recursively
+    for (const key of ["text", "response", "output", "outputImage", "value", "url"]) {
+      if (value[key] !== undefined) return unwrapOutput(value[key]);
+    }
+    return "";
+  }
+  return "";
+}
+
+// A value is an image when it came out of an image port or looks like an image URL
+function isImageValue(value: string, sourceHandle: string | null): boolean {
+  if (sourceHandle === "outputImage") return true;
+  if (value.startsWith("data:image")) return true;
+  if (!value.startsWith("http")) return false;
+  return /\.(png|jpe?g|webp|gif)(\?|$)/i.test(value) || /transloadit|cloudinary/i.test(value);
+}
+
 export async function POST(
   request: Request,
   { params }: { params: { id: string } }
@@ -145,31 +171,42 @@ async function runOrchestrator(
       data: { nodes: currentNodes },
     });
 
-    // Atomically patch a single node's data and persist. Reads the live
-    // `currentNodes` synchronously before awaiting, so concurrent node writes
-    // don't clobber each other's outputs.
-    const patchNode = async (nodeId: string, patch: Record<string, any>) => {
+    // Serialized DB write queue. Node execution is concurrent, so without this
+    // two nodes writing `nodes` at the same time lose each other's updates.
+    // Enqueueing keeps writes ordered WITHOUT making the nodes wait on each other.
+    let writeQueue: Promise<any> = Promise.resolve();
+    const enqueueWrite = (fn: () => Promise<any>) => {
+      writeQueue = writeQueue.then(fn).catch((e) => console.error("DB write failed:", e));
+      return writeQueue;
+    };
+
+    // Patch a single node's data. The in-memory mutation is synchronous (so the
+    // next reader sees it immediately); the DB write is queued in the background.
+    // Callers that need the write flushed can await the returned promise.
+    const patchNode = (nodeId: string, patch: Record<string, any>) => {
       currentNodes = currentNodes.map((n) =>
         n.id === nodeId ? { ...n, data: { ...n.data, ...patch } } : n
       );
-      await db.workflow
-        .update({ where: { id: workflowId }, data: { nodes: currentNodes } })
-        .catch((e) => console.error(`Failed to patch node ${nodeId}:`, e));
+      const snapshot = currentNodes;
+      return enqueueWrite(() =>
+        db.workflow.update({ where: { id: workflowId }, data: { nodes: snapshot } })
+      );
     };
 
     // Persist execution history incrementally so the History sidebar can show
     // node-by-node progress in real time (status stays RUNNING until the end).
     const persistHistory = async (final = false) => {
-      await db.executionHistory
-        .update({
+      const snapshot = nodeDetails.slice();
+      await enqueueWrite(() =>
+        db.executionHistory.update({
           where: { id: runId },
           data: {
             status: final ? runStatus : "RUNNING",
             duration: (Date.now() - startTime) / 1000,
-            details: nodeDetails,
+            details: snapshot,
           },
         })
-        .catch((e) => console.error("Failed to persist execution history:", e));
+      );
     };
 
     // 4. Async execution tracking
@@ -181,6 +218,10 @@ async function runOrchestrator(
       if (!node) return;
 
       const nodeStartTime = Date.now();
+      // Offset (ms from run start) at which this node actually began work, i.e.
+      // after its dependencies resolved. Sibling nodes share the same offset —
+      // this is what makes parallel dispatch verifiable in the history.
+      let startedAtMs = 0;
       let nodeStatus = "SUCCESS";
       let nodeError = "";
       let nodeOutputs: Record<string, any> = {};
@@ -211,10 +252,14 @@ async function runOrchestrator(
           }
         });
 
-        // Dependencies resolved — turn THIS node's glow on now (real-time active state)
+        // Dependencies resolved — this node is now runnable and starts IMMEDIATELY.
+        // The glow write is queued, not awaited: waiting on a DB round-trip here
+        // would stagger sibling nodes that should all begin at the same instant.
+        startedAtMs = Date.now() - startTime;
         if (node.type !== "requestInputs" && node.type !== "response") {
-          await patchNode(nodeId, { isExecuting: true });
+          patchNode(nodeId, { isExecuting: true });
         }
+        console.log(`[T+${startedAtMs}ms] Node ${nodeId} (${node.type}) STARTED`);
 
         // B. Run execution depending on node type
         if (node.type === "requestInputs") {
@@ -233,9 +278,10 @@ async function runOrchestrator(
 
           nodeInputs = { inputImage, x, y, width, height };
 
-          // Persist the resolved input image so the node shows its preview
+          // Persist the resolved input image so the node shows its preview.
+          // Queued, not awaited — the crop must start at T=0 alongside its siblings.
           if (inputImage) {
-            await patchNode(nodeId, { inputImage });
+            patchNode(nodeId, { inputImage });
           }
 
           // Execute task via Trigger.dev or fallback invocation
@@ -257,7 +303,7 @@ async function runOrchestrator(
           nodeOutputs = { outputImage: croppedUrl };
 
           // Update DB node output in real-time, glow OFF
-          await patchNode(nodeId, { outputImage: croppedUrl, isExecuting: false });
+          patchNode(nodeId, { outputImage: croppedUrl, isExecuting: false });
         } else if (node.type === "gemini") {
           // Gemini Node
           const prompt = nodeInputs.prompt || node.data.prompt || "";
@@ -300,39 +346,32 @@ async function runOrchestrator(
           nodeOutputs = { response: responseText };
 
           // Update DB node output in real-time, glow OFF
-          await patchNode(nodeId, { response: responseText, isExecuting: false });
+          patchNode(nodeId, { response: responseText, isExecuting: false });
         } else if (node.type === "response") {
-          // Final collector node
-          // Gather all values connected to result input
-          const incomingResults: any[] = [];
-          
-          incomingEdges.forEach((edge) => {
-            if (edge.targetHandle === "result") {
-              const srcVals = resolvedOutputs[edge.source];
-              if (srcVals) {
-                // Find what output variable was connected
-                const val = srcVals[edge.sourceHandle];
-                if (val) {
-                  const isImage = 
-                    edge.sourceHandle === "outputImage" || 
-                    (typeof val === "string" && val.startsWith("data:image")) ||
-                    (typeof val === "string" && val.startsWith("http") && (val.includes(".png") || val.includes(".jpg") || val.includes(".jpeg") || val.includes("transloadit")));
+          // Final collector node. Emits ONLY the clean workflow outputs —
+          // plain text or a CDN image URL. No node ids, no execution metadata,
+          // no nested JSON wrappers.
+          const incomingResults: Array<{ value: string; type: string }> = [];
 
-                  incomingResults.push({
-                    source: edge.source,
-                    value: val,
-                    type: isImage ? "image" : "text",
-                  });
-                }
-              }
-            }
+          incomingEdges.forEach((edge) => {
+            if (edge.targetHandle !== "result") return;
+            const srcVals = resolvedOutputs[edge.source];
+            if (!srcVals) return;
+
+            const value = unwrapOutput(srcVals[edge.sourceHandle]);
+            if (!value) return;
+
+            incomingResults.push({
+              value,
+              type: isImageValue(value, edge.sourceHandle) ? "image" : "text",
+            });
           });
 
           nodeInputs = { result: incomingResults };
           nodeOutputs = { results: incomingResults };
 
           // Update Response Node data
-          await patchNode(nodeId, { results: incomingResults, isExecuting: false });
+          patchNode(nodeId, { results: incomingResults, isExecuting: false });
         }
 
         resolvedOutputs[nodeId] = nodeOutputs;
@@ -343,13 +382,19 @@ async function runOrchestrator(
         runStatus = "PARTIAL";
 
         // Make sure isExecuting is disabled
-        await patchNode(nodeId, { isExecuting: false });
+        patchNode(nodeId, { isExecuting: false });
       } finally {
         const nodeEndTime = Date.now();
         const duration = (nodeEndTime - nodeStartTime) / 1000;
+        const endedAtMs = nodeEndTime - startTime;
+        console.log(
+          `[T+${endedAtMs}ms] Node ${nodeId} (${node.type}) FINISHED — ran for ${((nodeEndTime - startTime - startedAtMs) / 1000).toFixed(1)}s`
+        );
 
         nodeDetails.push({
           nodeId,
+          startedAtMs,
+          endedAtMs,
           nodeName:
             node.type === "requestInputs" ? "Request Inputs" :
             node.type === "response" ? "Response" :
@@ -379,16 +424,18 @@ async function runOrchestrator(
     // Wait for all node promises to fully resolve
     await Promise.all(nodesToExecuteIds.map((nodeId) => executionPromises[nodeId]));
 
-    // 6. Complete overall workflow run — disable any leftover execution flags
+    // 6. Complete overall workflow run — disable any leftover execution flags.
+    //    Routed through the queue so it lands AFTER every queued node write
+    //    rather than being overtaken by one still in flight.
     currentNodes = currentNodes.map((n) => ({
       ...n,
       data: { ...n.data, isExecuting: false },
     }));
 
-    await db.workflow.update({
-      where: { id: workflowId },
-      data: { nodes: currentNodes },
-    });
+    const finalNodes = currentNodes;
+    await enqueueWrite(() =>
+      db.workflow.update({ where: { id: workflowId }, data: { nodes: finalNodes } })
+    );
 
     // Finalize execution history record
     await persistHistory(true);
