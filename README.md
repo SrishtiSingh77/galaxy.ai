@@ -1,13 +1,37 @@
-# Galaxy.ai — Node-Based AI Workflow Builder
+<div align="center">
 
-A visual, node-based workflow builder for chaining AI tasks. Drag nodes onto an infinite canvas, wire typed ports together, and hit **Run** — the engine resolves the graph as a DAG and executes every independent branch in parallel.
+# 🌌 Galaxy.ai — Node-Based AI Workflow Builder
 
-Built with Next.js 14 (App Router), React Flow, Zustand, Prisma + PostgreSQL, Clerk, Google Gemini, Trigger.dev, and a CDN-backed media pipeline.
+**Drag nodes onto an infinite canvas, wire typed ports together, hit Run.**
+The engine resolves the graph as a DAG and executes every independent branch in parallel.
+
+<br />
+
+![Next.js](https://img.shields.io/badge/Next.js-14-000000?style=for-the-badge&logo=next.js&logoColor=white)
+![React](https://img.shields.io/badge/React-18-61DAFB?style=for-the-badge&logo=react&logoColor=black)
+![TypeScript](https://img.shields.io/badge/TypeScript-5-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Prisma](https://img.shields.io/badge/Prisma-5-2D3748?style=for-the-badge&logo=prisma&logoColor=white)
+![PostgreSQL](https://img.shields.io/badge/PostgreSQL-Neon-4169E1?style=for-the-badge&logo=postgresql&logoColor=white)
+
+![React Flow](https://img.shields.io/badge/React_Flow-11-FF0072?style=for-the-badge)
+![Clerk](https://img.shields.io/badge/Clerk-Auth-6C47FF?style=for-the-badge&logo=clerk&logoColor=white)
+![Gemini](https://img.shields.io/badge/Google_Gemini-Multimodal-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white)
+![Transloadit](https://img.shields.io/badge/Transloadit-CDN-1F8CEB?style=for-the-badge)
+![Tailwind](https://img.shields.io/badge/Tailwind-3-06B6D4?style=for-the-badge&logo=tailwindcss&logoColor=white)
+
+<br />
+
+![DAG checks](https://img.shields.io/badge/DAG_checks-6%2F6_passing-22c55e?style=flat-square)
+![Build](https://img.shields.io/badge/build-passing-22c55e?style=flat-square)
+![Typecheck](https://img.shields.io/badge/typecheck-clean-22c55e?style=flat-square)
+
+</div>
 
 ---
 
 ## Table of Contents
 
+- [Verified Behaviour](#verified-behaviour)
 - [Features](#features)
 - [Architecture](#architecture)
 - [Node Types](#node-types)
@@ -22,6 +46,64 @@ Built with Next.js 14 (App Router), React Flow, Zustand, Prisma + PostgreSQL, Cl
 - [API Routes](#api-routes)
 - [Verifying the Behaviour](#verifying-the-behaviour)
 - [Known Constraints](#known-constraints)
+
+---
+
+## Verified Behaviour
+
+Run `npm run verify:dag` to reproduce everything below. It executes the graph shape shown here against the **real** crop task and asserts the timing. Gemini calls are stubbed so the check costs no API quota. Takes ~32 seconds.
+
+```
+Request Inputs
+    ├── Crop Image #1  ─┐
+    ├── Crop Image #2  ─┤
+    └── Gemini #1       │
+            │           │
+            └── Gemini #2
+                        │
+                  Final Gemini
+```
+
+### Actual output
+
+```
+[T+     0ms] request-inputs STARTED
+[T+     1ms] request-inputs FINISHED
+[T+     1ms] crop-1        STARTED   ─┐
+[T+    35ms] crop-2        STARTED    │  all three dispatch at T=0
+[T+    38ms] gemini-1      STARTED   ─┘
+[T+  1541ms] gemini-1      FINISHED
+[T+  1541ms] gemini-2      STARTED       does NOT wait on the crops
+[T+  3051ms] gemini-2      FINISHED
+[T+ 30005ms] crop-1        FINISHED
+[T+ 30041ms] crop-2        FINISHED
+[T+ 30041ms] gemini-final  STARTED       waits for all three dependencies
+[T+ 31548ms] gemini-final  FINISHED
+```
+
+### Assertions
+
+| Check | Result | Measured |
+|---|:--:|---|
+| Independent siblings start at T=0 | ✅ | start spread **35 ms** (threshold 100 ms) |
+| Crop #1 honours the 30 s floor | ✅ | ran **30.0 s** |
+| Crop #2 honours the 30 s floor | ✅ | ran **30.0 s** |
+| Crops run concurrently, not serially | ✅ | both finished in **30.0 s**, not 60 s |
+| Gemini #2 does not wait on the crops | ✅ | started at **T+1541 ms** |
+| Final Gemini waits for all three deps | ✅ | started at **T+30041 ms**, last dep ended T+30041 ms |
+
+**6/6 passing.**
+
+### Image outputs
+
+Both crop nodes returned Transloadit CDN URLs — no base64, no blobs, no `localhost`:
+
+```
+Cropped image CDN URL: https://pub-e8fef8c0e03b44acb340577811800829.r2.dev/…/07fa20ea9f124abbba2f17e538ac8d0c.png
+Cropped image CDN URL: https://pub-e8fef8c0e03b44acb340577811800829.r2.dev/…/cd1912190f96447dbd5b822b704aef98.png
+```
+
+> Transloadit's default temporary storage is Cloudflare R2-backed, so `ssl_url` resolves to a `pub-….r2.dev` host rather than a `transloadit.com` one. These files also expire after ~24 hours. Add an export step (`/s3/store`, `/cloudinary/store`) to the template for a permanent, self-branded URL.
 
 ---
 
@@ -222,7 +304,7 @@ Cropped CDN URL returned
 
 `lib/storage.ts` is the single swap point. Providers are tried in order:
 
-1. **Transloadit** — used when `TRANSLOADIT_AUTH_KEY` and `TRANSLOADIT_TEMPLATE_ID` are both set. Results are re-hosted so every image output in the graph is a Transloadit CDN URL.
+1. **Transloadit** — used when `TRANSLOADIT_AUTH_KEY` and `TRANSLOADIT_TEMPLATE_ID` are both set. Results are re-hosted so every image output in the graph is a Transloadit CDN URL. The assembly poller reads the result URL from `results[…]` when the template has processing steps, and falls back to `uploads[]` for a bare `/upload/handle` template, which produces no `results` entries at all.
 2. **Cloudinary** — the working default. Handles both uploads and the crop transformation.
 3. **Local disk** — dev-only last resort. Returns a `localhost` URL, so this path must never be used in production; configure a CDN provider instead.
 
@@ -420,18 +502,7 @@ All routes are Clerk-guarded and verify record ownership before responding.
 npm run verify:dag
 ```
 
-Runs the reviewer's exact graph shape (Request Inputs → Crop ×2 + Gemini → Gemini → Final Gemini) against the **real** crop task, and asserts:
-
-```
-PASS  siblings start at T=0 — start spread 35ms (want <100ms)
-PASS  crop-1 honours 30s floor — ran 30.0s (want >=30s)
-PASS  crop-2 honours 30s floor — ran 30.0s (want >=30s)
-PASS  crops run concurrently — both crops took 30.0s total (want ~30s, not ~60s)
-PASS  gemini-2 does not wait on crops — started at T+1544ms
-PASS  gemini-final waits for all three deps — started at T+30042ms
-```
-
-Gemini calls are stubbed so the check costs no API quota; the crop path is real and prints the CDN URL it produced. Takes ~32 seconds.
+See [Verified Behaviour](#verified-behaviour) for the full output and assertion table.
 
 ### Manual checks
 
@@ -466,7 +537,8 @@ Two parallel crops should still finish the run in roughly 30 seconds total — i
 ## Known Constraints
 
 - **Serverless timeouts.** The 30-second crop floor plus Gemini latency can exceed the default function timeout on some hosts. The orchestrator runs fire-and-forget after the HTTP response is sent, so a platform that freezes the process at response time will cut the run short. Raise the function's max duration accordingly.
-- **Transloadit requires valid credentials.** With an invalid auth key, uploads fail with `GET_ACCOUNT_UNKNOWN_AUTH_KEY`. The provider is gated on config presence and falls through to Cloudinary, but an invalid-yet-present key will burn a failed attempt on each upload before falling back.
+- **Transloadit requires valid credentials.** With an invalid auth key, uploads fail with `GET_ACCOUNT_UNKNOWN_AUTH_KEY`. The provider is gated on config presence and falls through to Cloudinary, but an invalid-yet-present key burns three failed retries on each upload before falling back — leave the keys empty rather than wrong.
+- **Transloadit temp URLs expire.** A template whose only step is `/upload/handle` stores the file in Transloadit's temporary (R2-backed) storage, which is cleared after roughly 24 hours and returns a `pub-….r2.dev` host. Add an export step for permanent, self-branded URLs.
 - **FFmpeg is dev-only.** It requires a spawnable binary and a writable temp directory. Configure a CDN provider for any deployed environment.
 - **Local disk storage returns `localhost` URLs**, which are unreachable from the CDN and from other machines. It exists purely so the app runs without credentials during development.
 - **Crop parameters are percentages.** `X=0, Y=0, W=100, H=100` is the full frame and produces output identical to the input — lower the width and height to see an actual crop.

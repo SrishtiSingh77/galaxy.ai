@@ -31,12 +31,26 @@ const pollAssembly = (
           if (json.ok === "ASSEMBLY_COMPLETED") {
             const results = json.results || {};
             const firstStep = Object.keys(results).find((k) => k !== ":original");
+            // A template whose only step is /upload/handle produces NO entries in
+            // `results` — the stored original lands in `uploads[]` instead. That
+            // file already has a Transloadit CDN ssl_url, so fall back to it
+            // rather than failing an otherwise successful assembly.
             const url =
               results.export?.[0]?.ssl_url ||
               (firstStep && results[firstStep]?.[0]?.ssl_url) ||
-              results[":original"]?.[0]?.ssl_url;
-            if (url) resolve(url);
-            else reject(new Error("Transloadit assembly returned no result URL"));
+              results[":original"]?.[0]?.ssl_url ||
+              json.uploads?.[0]?.ssl_url;
+            if (url) {
+              resolve(url);
+            } else {
+              reject(
+                new Error(
+                  `Transloadit assembly completed but exposed no URL ` +
+                    `(result steps: [${Object.keys(results).join(", ")}], ` +
+                    `uploads: ${json.uploads?.length ?? 0})`
+                )
+              );
+            }
           } else if (json.error) {
             reject(new Error(`Transloadit error: ${json.error}`));
           } else {
