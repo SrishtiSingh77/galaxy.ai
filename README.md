@@ -311,7 +311,7 @@ NEXT_PUBLIC_CLERK_SIGN_IN_URL="/sign-in"
 NEXT_PUBLIC_CLERK_SIGN_UP_URL="/sign-up"
 
 # Google Gemini
-GOOGLE_API_KEY="..."
+GEMINI_API_KEY="..."
 
 # Cloudinary (default media provider)
 NEXT_PUBLIC_CLOUDINARY_CLOUD_NAME="..."
@@ -413,6 +413,27 @@ All routes are Clerk-guarded and verify record ownership before responding.
 ---
 
 ## Verifying the Behaviour
+
+### Automated check
+
+```bash
+npm run verify:dag
+```
+
+Runs the reviewer's exact graph shape (Request Inputs → Crop ×2 + Gemini → Gemini → Final Gemini) against the **real** crop task, and asserts:
+
+```
+PASS  siblings start at T=0 — start spread 35ms (want <100ms)
+PASS  crop-1 honours 30s floor — ran 30.0s (want >=30s)
+PASS  crop-2 honours 30s floor — ran 30.0s (want >=30s)
+PASS  crops run concurrently — both crops took 30.0s total (want ~30s, not ~60s)
+PASS  gemini-2 does not wait on crops — started at T+1544ms
+PASS  gemini-final waits for all three deps — started at T+30042ms
+```
+
+Gemini calls are stubbed so the check costs no API quota; the crop path is real and prints the CDN URL it produced. Takes ~32 seconds.
+
+### Manual checks
 
 **Parallel dispatch.** Run a workflow and watch the server log:
 

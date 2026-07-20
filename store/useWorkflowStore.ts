@@ -67,6 +67,8 @@ interface WorkflowState {
   addNode: (node: Node<NodeData>) => void;
   deleteNode: (nodeId: string) => void;
   updateNodeData: (nodeId: string, data: Partial<NodeData>) => void;
+  // Rename a Request-Inputs field AND remap any edges bound to its old handle
+  renameInputField: (nodeId: string, fieldId: string, newName: string) => void;
   
   // Undo / Redo
   takeSnapshot: () => void;
@@ -126,8 +128,9 @@ export const willCreateCycle = (edges: Edge[], source: string, target: string): 
   return false;
 };
 
-// Datatype carried by a node handle
-type PortType =
+// Datatype carried by a node handle. "unknown" means the port could not be
+// resolved — it is rejected against everything, so validation fails CLOSED.
+export type PortType =
   | "text"
   | "number"
   | "boolean"
@@ -136,10 +139,13 @@ type PortType =
   | "video"
   | "file"
   | "media"
-  | "any";
+  | "any"
+  | "unknown";
 
-// Map a Request-Inputs field type to its port datatype
-const fieldTypeToPort = (t?: string): PortType => {
+// Map a Request-Inputs field type to its port datatype.
+// An unrecognised/missing field type resolves to "unknown", NOT "text" — a text
+// default silently let image ports masquerade as text and pass validation.
+export const fieldTypeToPort = (t?: string): PortType => {
   switch (t) {
     case "image_field":
       return "image";
@@ -156,30 +162,38 @@ const fieldTypeToPort = (t?: string): PortType => {
     case "boolean_field":
       return "boolean";
     case "text_field":
-    default:
       return "text";
+    default:
+      return "unknown";
   }
 };
 
 // Datatype produced by a source handle
-const getSourcePortType = (node: Node<NodeData> | undefined, handle: string | null): PortType => {
-  if (!node) return "any";
+export const getSourcePortType = (
+  node: Node<NodeData> | undefined,
+  handle: string | null
+): PortType => {
+  if (!node) return "unknown";
   if (node.type === "requestInputs") {
     const field = node.data.fields?.find((f) => f.id === handle || f.name === handle);
-    return fieldTypeToPort(field?.type);
+    if (!field) return "unknown"; // stale handle — never assume a type
+    return fieldTypeToPort(field.type);
   }
   if (node.type === "cropImage") return "image"; // outputImage
   if (node.type === "gemini") return "text"; // response
-  return "any";
+  return "unknown";
 };
 
 // Datatype accepted by a target handle
-const getTargetPortType = (node: Node<NodeData> | undefined, handle: string | null): PortType => {
-  if (!node) return "any";
+export const getTargetPortType = (
+  node: Node<NodeData> | undefined,
+  handle: string | null
+): PortType => {
+  if (!node) return "unknown";
   if (node.type === "cropImage") {
     if (handle === "inputImage") return "image";
     if (handle === "x" || handle === "y" || handle === "width" || handle === "height") return "number";
-    return "any";
+    return "unknown";
   }
   if (node.type === "gemini") {
     switch (handle) {
@@ -193,26 +207,58 @@ const getTargetPortType = (node: Node<NodeData> | undefined, handle: string | nu
         return "file";
       case "prompt":
       case "systemPrompt":
-      default:
         return "text";
+      default:
+        return "unknown";
     }
   }
-  if (node.type === "response") return "any"; // collects every format
-  return "any";
+  if (node.type === "response") return "any"; // the terminal collector takes every format
+  return "unknown";
 };
 
-// Whether a source datatype can feed a target datatype
+// Whether a source datatype can feed a target datatype.
+// Anything not explicitly allowed here is rejected.
 const arePortsCompatible = (src: PortType, tgt: PortType): boolean => {
-  if (src === "any" || tgt === "any") return true;
+  // An unresolvable port is never safe to connect
+  if (src === "unknown" || tgt === "unknown") return false;
+  // Only the Response collector declares itself as "any"
+  if (tgt === "any") return true;
   if (src === tgt) return true;
   // A text sink accepts stringifiable scalars
   if (tgt === "text" && (src === "number" || src === "boolean")) return true;
-  // "media" bridges the concrete visual/audio formats both directions
+  // A numeric sink accepts a boolean (0/1) but NOT free text
+  if (tgt === "number" && src === "boolean") return true;
+  // "media" is a union of the concrete asset formats
   if (tgt === "media" && (src === "image" || src === "audio" || src === "video")) return true;
   if (src === "media" && (tgt === "image" || tgt === "audio" || tgt === "video")) return true;
-  // A file sink accepts any uploaded asset
-  if (tgt === "file") return true;
+  // A file sink accepts any uploaded ASSET — but not scalars
+  if (tgt === "file" && (src === "image" || src === "audio" || src === "video" || src === "media"))
+    return true;
   return false;
+};
+
+// Human-readable rejection reason, or null when the connection is valid.
+// Used to surface WHY a connection was refused instead of silently dropping it.
+export const getConnectionError = (
+  sourceNode: Node<NodeData> | undefined,
+  sourceHandle: string | null,
+  targetNode: Node<NodeData> | undefined,
+  targetHandle: string | null
+): string | null => {
+  if (!sourceNode || !targetNode || !sourceHandle || !targetHandle) {
+    return "Incomplete connection.";
+  }
+  const sourceType = getSourcePortType(sourceNode, sourceHandle);
+  const targetType = getTargetPortType(targetNode, targetHandle);
+
+  if (sourceType === "unknown" || targetType === "unknown") {
+    return "Unknown port type — connection refused.";
+  }
+  if (!arePortsCompatible(sourceType, targetType)) {
+    const label = (t: PortType) => t.charAt(0).toUpperCase() + t.slice(1);
+    return `${label(sourceType)} cannot connect to ${label(targetType)}.`;
+  }
+  return null;
 };
 
 // Enforces connection type-safety across node handles
@@ -221,12 +267,8 @@ export const isConnectionTypesCompatible = (
   sourceHandle: string | null,
   targetNode: Node<NodeData> | undefined,
   targetHandle: string | null
-): boolean => {
-  if (!sourceNode || !targetNode || !sourceHandle || !targetHandle) return false;
-  const sourceType = getSourcePortType(sourceNode, sourceHandle);
-  const targetType = getTargetPortType(targetNode, targetHandle);
-  return arePortsCompatible(sourceType, targetType);
-};
+): boolean =>
+  getConnectionError(sourceNode, sourceHandle, targetNode, targetHandle) === null;
 
 // Port datatype → edge color (shared by live connections and load-time normalization)
 const PORT_COLORS: Record<PortType, string> = {
@@ -239,6 +281,7 @@ const PORT_COLORS: Record<PortType, string> = {
   media: "#8b5cf6",
   file: "#8b5cf6",
   any: "#71717a",
+  unknown: "#71717a",
 };
 
 const edgeStroke = (
@@ -391,6 +434,42 @@ export const useWorkflowStore = create<WorkflowState>((set, get) => ({
         return node;
       }),
     });
+    get().updateDatabase();
+  },
+
+  // A Request-Inputs handle is identified by the field NAME, so renaming a field
+  // used to orphan every edge attached to it: the edge kept pointing at the old
+  // handle, the field lookup failed, and the port silently resolved to "text" —
+  // which let an image feed a text input. Remap the edges alongside the rename.
+  renameInputField: (nodeId, fieldId, newName) => {
+    const { nodes, edges } = get();
+    const node = nodes.find((n) => n.id === nodeId);
+    const oldName = node?.data.fields?.find((f) => f.id === fieldId)?.name;
+
+    set({
+      nodes: nodes.map((n) =>
+        n.id === nodeId
+          ? {
+              ...n,
+              data: {
+                ...n.data,
+                fields: (n.data.fields || []).map((f) =>
+                  f.id === fieldId ? { ...f, name: newName } : f
+                ),
+              },
+            }
+          : n
+      ),
+      edges:
+        oldName && oldName !== newName
+          ? edges.map((e) =>
+              e.source === nodeId && e.sourceHandle === oldName
+                ? { ...e, sourceHandle: newName }
+                : e
+            )
+          : edges,
+    });
+
     get().updateDatabase();
   },
 

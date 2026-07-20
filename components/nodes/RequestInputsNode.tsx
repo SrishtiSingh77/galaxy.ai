@@ -22,6 +22,7 @@ import { useWorkflowStore, RequestInputField } from "@/store/useWorkflowStore";
 
 export default function RequestInputsNode({ id, data }: { id: string; data: any }) {
   const updateNodeData = useWorkflowStore((state) => state.updateNodeData);
+  const renameInputField = useWorkflowStore((state) => state.renameInputField);
   const [fields, setFields] = useState<RequestInputField[]>(data.fields || []);
   const [uploadingFieldId, setUploadingFieldId] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
@@ -72,10 +73,11 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
     }
   };
 
+  // Routed through the store so edges bound to the old handle name follow the
+  // rename instead of being orphaned (which broke port-type resolution).
   const handleFieldRename = (fieldId: string, newName: string) => {
-    updateFields(
-      fields.map((f) => (f.id === fieldId ? { ...f, name: newName } : f))
-    );
+    setFields(fields.map((f) => (f.id === fieldId ? { ...f, name: newName } : f)));
+    renameInputField(id, fieldId, newName);
   };
 
   const handleTextChange = (fieldId: string, text: string) => {
@@ -337,11 +339,14 @@ export default function RequestInputsNode({ id, data }: { id: string; data: any 
                   </div>
                 )}
 
-                {/* Expose output handle */}
+                {/* Expose output handle — the port datatype is surfaced on hover
+                    and as a data attribute so every handle declares its own type */}
                 <Handle
                   type="source"
                   position={Position.Right}
                   id={field.name}
+                  title={`Output type: ${field.type.replace("_field", "").toUpperCase()}`}
+                  data-porttype={field.type.replace("_field", "")}
                   style={
                     field.type === "text_field"
                       ? { width: "8px", height: "8px", backgroundColor: "#f97316", borderColor: "#f97316" }

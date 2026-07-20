@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useEffect } from "react";
 import { Handle, Position } from "reactflow";
@@ -59,6 +59,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="inputImage"
+            title="Accepts type: IMAGE"
+            data-porttype="image"
             style={{ width: "8px", height: "8px", backgroundColor: "#ec4899", borderColor: "#ec4899" }}
             className="hover:scale-125 transition-transform"
           />
@@ -84,6 +86,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="x"
+              title="Accepts type: NUMBER"
+              data-porttype="number"
               style={{
                 width: "8px",
                 height: "8px",
@@ -114,6 +118,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="y"
+              title="Accepts type: NUMBER"
+              data-porttype="number"
               style={{
                 width: "8px",
                 height: "8px",
@@ -144,6 +150,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="width"
+              title="Accepts type: NUMBER"
+              data-porttype="number"
               style={{
                 width: "8px",
                 height: "8px",
@@ -174,6 +182,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="height"
+              title="Accepts type: NUMBER"
+              data-porttype="number"
               style={{
                 width: "8px",
                 height: "8px",
@@ -221,6 +231,8 @@ export default function CropImageNode({ id, data }: { id: string; data: any }) {
             type="source"
             position={Position.Right}
             id="outputImage"
+            title="Output type: IMAGE"
+            data-porttype="image"
             style={{ width: "8px", height: "8px", backgroundColor: "#18181b", borderColor: "#18181b" }}
             className="hover:scale-125 transition-transform"
           />

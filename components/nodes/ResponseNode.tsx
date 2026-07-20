@@ -36,6 +36,8 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
           type="target"
           position={Position.Left}
           id="result"
+          title="Accepts type: ANY"
+          data-porttype="any"
           style={{
             width: "8px",
             height: "8px",

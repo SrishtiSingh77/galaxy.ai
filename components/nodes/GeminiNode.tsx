@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import React, { useState, useEffect } from "react";
 import { Handle, Position } from "reactflow";
@@ -51,7 +51,7 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
     updateNodeData(id, updates);
   };
 
-  // Upload via the server route (reliable, retried) → store only the returned CDN URL
+  // Upload via the server route (reliable, retried) â†’ store only the returned CDN URL
   const handleFileUpload = async (type: string, file: File) => {
     setUploadingType(type);
     try {
@@ -113,6 +113,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="prompt"
+            title="Accepts type: TEXT"
+            data-porttype="text"
             style={{ width: "8px", height: "8px", backgroundColor: "#f97316", borderColor: "#f97316" }}
             className="hover:scale-125 transition-transform"
           />
@@ -135,6 +137,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="target"
             position={Position.Left}
             id="systemPrompt"
+            title="Accepts type: TEXT"
+            data-porttype="text"
             style={{
               width: "8px",
               height: "8px",
@@ -165,6 +169,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="image"
+            title="Accepts type: IMAGE"
+            data-porttype="image"
               style={{
                 width: "8px",
                 height: "8px",
@@ -209,6 +215,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="video"
+            title="Accepts type: VIDEO"
+            data-porttype="video"
               style={{
                 width: "8px",
                 height: "8px",
@@ -253,6 +261,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="audio"
+            title="Accepts type: AUDIO"
+            data-porttype="audio"
               style={{
                 width: "8px",
                 height: "8px",
@@ -297,6 +307,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
               type="target"
               position={Position.Left}
               id="file"
+            title="Accepts type: FILE"
+            data-porttype="file"
               style={{
                 width: "8px",
                 height: "8px",
@@ -402,6 +414,8 @@ export default function GeminiNode({ id, data }: { id: string; data: any }) {
             type="source"
             position={Position.Right}
             id="response"
+            title="Output type: TEXT"
+            data-porttype="text"
             style={{ width: "8px", height: "8px", backgroundColor: "#18181b", borderColor: "#18181b" }}
             className="hover:scale-125 transition-transform"
           />

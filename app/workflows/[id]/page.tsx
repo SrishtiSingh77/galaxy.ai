@@ -16,7 +16,12 @@ import ReactFlow, {
 } from "reactflow";
 import "reactflow/dist/style.css";
 
-import { useWorkflowStore, willCreateCycle, isConnectionTypesCompatible } from "@/store/useWorkflowStore";
+import {
+  useWorkflowStore,
+  willCreateCycle,
+  isConnectionTypesCompatible,
+  getConnectionError,
+} from "@/store/useWorkflowStore";
 import { useRouter } from "next/navigation";
 import {
   ArrowLeft,
@@ -110,22 +115,49 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
 
   const { zoom } = useViewport();
 
-  // Validate connections visually during drag
+  // Reason the last connection attempt was refused, shown briefly on the canvas
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const errorTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const flashConnectionError = useCallback((message: string) => {
+    setConnectionError(message);
+    if (errorTimer.current) clearTimeout(errorTimer.current);
+    errorTimer.current = setTimeout(() => setConnectionError(null), 2600);
+  }, []);
+
+  // Why the handle currently hovered during a drag would be refused. React Flow
+  // calls isValidConnection as the cursor moves over a candidate handle, so this
+  // captures the reason at the moment it is known.
+  const pendingRejection = useRef<string | null>(null);
+
+  // Validate connections visually during drag. Returning false makes React Flow
+  // refuse the drop, so an invalid edge is never created in the first place.
   const isValidConnection = useCallback((connection: Connection) => {
     const sourceNode = nodes.find((n) => n.id === connection.source);
     const targetNode = nodes.find((n) => n.id === connection.target);
-    
+
     if (willCreateCycle(edges, connection.source || "", connection.target || "")) {
+      pendingRejection.current = "this would create a loop.";
       return false;
     }
-    
-    return isConnectionTypesCompatible(
+
+    const reason = getConnectionError(
       sourceNode,
       connection.sourceHandle,
       targetNode,
       connection.targetHandle
     );
+    pendingRejection.current = reason;
+    return reason === null;
   }, [nodes, edges]);
+
+  // On drop, explain the refusal instead of letting the edge vanish silently.
+  const handleConnectEnd = useCallback(() => {
+    if (pendingRejection.current) {
+      flashConnectionError(`Rejected: ${pendingRejection.current}`);
+    }
+    pendingRejection.current = null;
+  }, [flashConnectionError]);
 
   // Layered auto-arrange algorithm with animated viewport fitting
   const autoArrange = useCallback(() => {
@@ -506,6 +538,7 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
           onNodesChange={onNodesChange}
           onEdgesChange={onEdgesChange}
           onConnect={onConnect}
+          onConnectEnd={handleConnectEnd}
           nodeTypes={nodeTypes}
           edgeTypes={edgeTypes}
           fitView
@@ -520,6 +553,16 @@ function FlowEditor({ workflowId }: { workflowId: string }) {
           className={isSelectMode ? "" : "cursor-grab active:cursor-grabbing"}
         >
           <Background color="#a1a1aa" gap={16} size={1.2} />
+
+          {/* Type-validation feedback for a refused connection */}
+          {connectionError && (
+            <Panel position="top-center" className="pointer-events-none">
+              <div className="flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-600 shadow-sm">
+                <X className="h-3.5 w-3.5" />
+                {connectionError}
+              </div>
+            </Panel>
+          )}
           
           {/* Custom Bottom-Left Controls Panel */}
           {!controlsExpanded ? (

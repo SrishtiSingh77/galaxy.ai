@@ -8,6 +8,8 @@
 
 # user uploads (served locally at runtime)
 /public/uploads
+# scratch files written by the FFmpeg crop fallback
+/tmp
 
 # next.js
 /.next/

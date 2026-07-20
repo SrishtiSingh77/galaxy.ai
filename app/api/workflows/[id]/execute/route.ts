@@ -5,6 +5,12 @@ import { runCropImage } from "@/trigger/cropImage";
 import { runGemini } from "@/trigger/geminiTask";
 import { z } from "zod";
 
+// The orchestrator runs in the background after the response is sent, and the
+// Crop task alone holds for 30s. Without a raised limit the platform kills the
+// function mid-run and the delay looks like it never happened.
+export const maxDuration = 300;
+export const dynamic = "force-dynamic";
+
 const executeWorkflowSchema = z.object({
   selectedNodeIds: z.array(z.string()).optional(), // For selective execution
 });
