@@ -2,21 +2,23 @@
 
 import React, { useEffect, useState } from "react";
 import { Handle, Position } from "reactflow";
-import { CheckCircle2, Award, Clipboard, Image as ImageIcon } from "lucide-react";
+import { CheckCircle2, Award, Clipboard, Check, Image as ImageIcon } from "lucide-react";
 import { useWorkflowStore } from "@/store/useWorkflowStore";
 
 export default function ResponseNode({ id, data }: { id: string; data: any }) {
   const edges = useWorkflowStore((state) => state.edges);
   const isResultConnected = edges.some((e) => e.target === id && e.targetHandle === "result");
   const [results, setResults] = useState<Array<{ value: string; type: string }>>(data.results || []);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
 
   useEffect(() => {
     setResults(data.results || []);
   }, [data.results]);
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert("Copied to clipboard!");
+  const copyToClipboard = (text: string, index: number) => {
+    navigator.clipboard.writeText(text).catch(() => {});
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex((current) => (current === index ? null : current)), 1500);
   };
 
   return (
@@ -71,10 +73,20 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
                     <div className="flex justify-between items-center text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
                       <span>{isImage ? "Image" : "Text"}</span>
                       <button
-                        onClick={() => copyToClipboard(res.value)}
-                        className="hover:text-zinc-600 p-0.5 rounded transition"
+                        onClick={() => copyToClipboard(res.value, index)}
+                        title={copiedIndex === index ? "Copied" : "Copy to clipboard"}
+                        className={`flex items-center gap-1 p-0.5 rounded transition ${
+                          copiedIndex === index ? "text-green-600" : "hover:text-zinc-600"
+                        }`}
                       >
-                        <Clipboard className="h-3.5 w-3.5" />
+                        {copiedIndex === index ? (
+                          <>
+                            <Check className="h-3.5 w-3.5" />
+                            <span className="text-[9px] font-bold">Copied</span>
+                          </>
+                        ) : (
+                          <Clipboard className="h-3.5 w-3.5" />
+                        )}
                       </button>
                     </div>
                     {isImage ? (
