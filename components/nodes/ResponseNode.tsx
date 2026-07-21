@@ -5,6 +5,67 @@ import { Handle, Position } from "reactflow";
 import { CheckCircle2, Award, Clipboard, Check, Image as ImageIcon } from "lucide-react";
 import { useWorkflowStore } from "@/store/useWorkflowStore";
 
+/** Render the small, safe subset of Markdown returned by text models. */
+function renderInlineMarkdown(text: string) {
+  const tokens = text.split(/(`[^`]+`|\*\*[^*]+\*\*)/g);
+
+  return tokens.map((token, index) => {
+    if (token.startsWith("`") && token.endsWith("`")) {
+      return (
+        <code key={index} className="rounded bg-zinc-200/80 px-1 py-0.5 font-mono text-[0.9em] text-zinc-800">
+          {token.slice(1, -1)}
+        </code>
+      );
+    }
+    if (token.startsWith("**") && token.endsWith("**")) {
+      return <strong key={index} className="font-bold text-zinc-900">{token.slice(2, -2)}</strong>;
+    }
+    return <React.Fragment key={index}>{token}</React.Fragment>;
+  });
+}
+
+function MarkdownResult({ value }: { value: string }) {
+  const blocks: React.ReactNode[] = [];
+  const lines = value.replace(/\r\n/g, "\n").split("\n");
+  let lineIndex = 0;
+
+  while (lineIndex < lines.length) {
+    const line = lines[lineIndex].trim();
+    if (!line) {
+      lineIndex += 1;
+      continue;
+    }
+
+    const heading = line.match(/^(#{1,3})\s+(.+)$/);
+    if (heading) {
+      blocks.push(<h3 key={lineIndex} className="mt-2 first:mt-0 text-[11px] font-bold leading-snug text-zinc-900">{renderInlineMarkdown(heading[2])}</h3>);
+      lineIndex += 1;
+      continue;
+    }
+
+    if (/^[-*+]\s+/.test(line)) {
+      const items: string[] = [];
+      const listKey = lineIndex;
+      while (lineIndex < lines.length && /^[-*+]\s+/.test(lines[lineIndex].trim())) {
+        items.push(lines[lineIndex].trim().replace(/^[-*+]\s+/, ""));
+        lineIndex += 1;
+      }
+      blocks.push(<ul key={listKey} className="ml-4 list-disc space-y-1 marker:text-zinc-400">{items.map((item, index) => <li key={index}>{renderInlineMarkdown(item)}</li>)}</ul>);
+      continue;
+    }
+
+    const paragraph: string[] = [line];
+    lineIndex += 1;
+    while (lineIndex < lines.length && lines[lineIndex].trim() && !/^(#{1,3})\s+|^[-*+]\s+/.test(lines[lineIndex].trim())) {
+      paragraph.push(lines[lineIndex].trim());
+      lineIndex += 1;
+    }
+    blocks.push(<p key={lineIndex}>{renderInlineMarkdown(paragraph.join(" "))}</p>);
+  }
+
+  return <div className="space-y-2 text-xs font-medium leading-[1.45] text-zinc-700">{blocks}</div>;
+}
+
 export default function ResponseNode({ id, data }: { id: string; data: any }) {
   const edges = useWorkflowStore((state) => state.edges);
   const isResultConnected = edges.some((e) => e.target === id && e.targetHandle === "result");
@@ -99,9 +160,9 @@ export default function ResponseNode({ id, data }: { id: string; data: any }) {
                         />
                       </div>
                     ) : (
-                      <p className="text-xs text-zinc-700 font-medium whitespace-pre-wrap max-h-36 overflow-y-auto">
-                        {res.value}
-                      </p>
+                      <div className="max-h-52 overflow-y-auto pr-1">
+                        <MarkdownResult value={res.value} />
+                      </div>
                     )}
                     {/* Image outputs also expose their CDN URL as plain text */}
                     {isImage && (
