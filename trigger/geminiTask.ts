@@ -1,5 +1,5 @@
 import { task } from "@trigger.dev/sdk/v3";
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 import https from "https";
 import http from "http";
 
@@ -73,26 +73,23 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
     maxTokens,
   } = payload;
 
-  const genAI = new GoogleGenerativeAI(apiKey);
+  // Explicitly select the Gemini Developer API. This prevents any host-level
+  // Vertex AI / OAuth configuration from changing this AI Studio API-key flow.
+  const genAI = new GoogleGenAI({ apiKey, vertexai: false });
 
-  // Map model name to Gemini API models
-  let apiModel = "gemini-1.5-pro"; // Default robust model
+  // Map model name to current Gemini API models (GA as of 2026).
+  // The "*-latest" aliases auto-track the newest release so retired IDs
+  // (e.g. 1.5/2.5) never break this path again.
+  let apiModel = "gemini-pro-latest"; // Default robust model
   if (modelName.includes("flash")) {
-    apiModel = "gemini-1.5-flash";
-  } else if (modelName.includes("1.5-pro")) {
-    apiModel = "gemini-1.5-pro";
-  } else if (modelName.includes("2.5-pro")) {
-    apiModel = "gemini-2.5-pro";
+    apiModel = "gemini-3.5-flash";
   } else if (modelName.includes("3.1-pro")) {
-    apiModel = "gemini-2.5-pro"; // Map custom naming
+    apiModel = "gemini-3.1-pro";
+  } else if (modelName.includes("pro")) {
+    apiModel = "gemini-pro-latest";
   }
 
   console.log(`Using Gemini model: ${apiModel}`);
-
-  const modelInstance = genAI.getGenerativeModel({
-    model: apiModel,
-    ...(systemPrompt && { systemInstruction: systemPrompt }),
-  });
 
   const parts: any[] = [{ text: prompt }];
 
@@ -173,6 +170,7 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
   }
 
   const generationConfig = {
+    ...(systemPrompt && { systemInstruction: systemPrompt }),
     ...(temperature !== undefined && { temperature }),
     ...(maxTokens !== undefined && { maxOutputTokens: maxTokens }),
   };
@@ -180,28 +178,26 @@ export const runGemini = async (payload: GeminiPayload): Promise<string> => {
   console.log(`Sending generateContent request to Gemini API with model: ${apiModel}...`);
   let responseResult;
   try {
-    responseResult = await modelInstance.generateContent({
+    responseResult = await genAI.models.generateContent({
+      model: apiModel,
       contents: [{ role: "user", parts }],
-      generationConfig,
+      config: generationConfig,
     });
   } catch (err: any) {
     const errMsg = err.message || String(err);
     if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("404")) {
-      console.warn(`Gemini model ${apiModel} failed with quota/version error. Retrying with fallback gemini-2.5-flash...`);
-      const fallbackModel = genAI.getGenerativeModel({
-        model: "gemini-2.5-flash",
-        ...(systemPrompt && { systemInstruction: systemPrompt }),
-      });
-      responseResult = await fallbackModel.generateContent({
+      console.warn(`Gemini model ${apiModel} failed with quota/version error. Retrying with fallback gemini-flash-latest...`);
+      responseResult = await genAI.models.generateContent({
+        model: "gemini-flash-latest",
         contents: [{ role: "user", parts }],
-        generationConfig,
+        config: generationConfig,
       });
     } else {
       throw err;
     }
   }
 
-  const responseText = responseResult.response.text();
+  const responseText = responseResult.text ?? "";
   console.log("Gemini API response text received:", responseText);
 
   return responseText;
